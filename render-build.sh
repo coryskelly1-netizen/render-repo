@@ -4,8 +4,5 @@ set -e
 # Install Node.js dependencies
 npm install
 
-# Force Puppeteer to download Chromium for Render's environment
+# Ensure Puppeteer downloads Chromium (Render doesn't include it by default)
 npx puppeteer install
-
-# Optional: clear npm cache to avoid build issues
-npm cache verify
