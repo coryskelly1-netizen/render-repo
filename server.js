@@ -1,6 +1,4 @@
 // server.js
-// Puppeteer backend for Render
-
 import express from "express";
 import cors from "cors";
 import puppeteer from "puppeteer";
@@ -8,9 +6,19 @@ import puppeteer from "puppeteer";
 const app = express();
 app.use(cors());
 
+// Centralized valid keys
+let VALID_KEYS = ["8392017", "4928371", "1029384"];
+
 // Health check
 app.get("/health", (req, res) => {
   res.json({ status: "ok", service: "puppeteer-proxy" });
+});
+
+// Key validation
+app.get("/validate", (req, res) => {
+  const key = req.query.key;
+  const valid = VALID_KEYS.includes(key);
+  res.json({ valid });
 });
 
 // Proxy endpoint
@@ -21,8 +29,14 @@ app.get("/proxy", async (req, res) => {
   try {
     const browser = await puppeteer.launch({
       headless: "new",
-      args: ["--no-sandbox", "--disable-setuid-sandbox"]
+      args: [
+        "--no-sandbox",
+        "--disable-setuid-sandbox",
+        "--disable-dev-shm-usage",
+        "--disable-gpu"
+      ]
     });
+
     const page = await browser.newPage();
     await page.goto(targetUrl, { waitUntil: "networkidle2", timeout: 30000 });
 
