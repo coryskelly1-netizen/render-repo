@@ -1,8 +1,12 @@
 #!/bin/bash
 set -e
 
-# Install Node.js dependencies
+# Install dependencies
 npm install
 
-# Ensure Puppeteer downloads Chromium (Render doesn't include it by default)
+# Force Puppeteer to download Chromium (Render doesn't include it by default)
 npx puppeteer install
+
+# Optional: verify Chromium path (for debugging)
+echo "Chromium path:"
+node -e "console.log(require('puppeteer').executablePath())"
