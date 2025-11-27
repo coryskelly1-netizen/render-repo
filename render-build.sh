@@ -3,13 +3,9 @@ set -e
 
 echo "🔧 Starting Render build script..."
 
-# Install dependencies
 npm install
-
-# Ensure Puppeteer downloads Chromium
 npx puppeteer install
 
-# Log Chromium path for debugging
 echo "📍 Chromium executable path:"
 node -e "try { console.log(require('puppeteer').executablePath()); } catch (e) { console.error('❌ Puppeteer not found:', e); process.exit(1); }"
 
