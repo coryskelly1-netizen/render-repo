@@ -25,31 +25,45 @@ app.get("/validate", (req, res) => {
 app.get("/proxy", async (req, res) => {
   const targetUrl = req.query.url;
   if (!targetUrl) return res.status(400).send("Missing url");
-
+  
+  let browser;
   try {
-    const browser = await puppeteer.launch({
+    browser = await puppeteer.launch({
       headless: "new",
+      executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || '/usr/bin/chromium',
       args: [
         "--no-sandbox",
         "--disable-setuid-sandbox",
         "--disable-dev-shm-usage",
-        "--disable-gpu"
+        "--disable-gpu",
+        "--no-first-run",
+        "--no-zygote",
+        "--single-process"
       ]
     });
-
+    
     const page = await browser.newPage();
     await page.goto(targetUrl, { waitUntil: "networkidle2", timeout: 30000 });
-
     const content = await page.content();
     await browser.close();
-
+    
     res.setHeader("Content-Type", "text/html; charset=utf-8");
     res.send(content);
   } catch (err) {
+    if (browser) {
+      try {
+        await browser.close();
+      } catch (e) {
+        console.error("Error closing browser:", e.message);
+      }
+    }
     console.error("Proxy error:", err.message);
     res.status(500).send("Proxy error: " + err.message);
   }
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Puppeteer proxy running on port ${PORT}`));
+app.listen(PORT, () => {
+  console.log(`Puppeteer proxy running on port ${PORT}`);
+  console.log(`Chromium path: ${process.env.PUPPETEER_EXECUTABLE_PATH || '/usr/bin/chromium'}`);
+});
