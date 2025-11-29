@@ -3,6 +3,15 @@ set -e
 
 echo "🔧 Starting Render build script..."
 
+# Install Chromium dependencies
+apt-get update && apt-get install -y \
+  chromium \
+  chromium-sandbox \
+  --no-install-recommends
+
+# Skip Puppeteer's Chromium download
+export PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
+
 npm install
 
 echo "📍 Chromium executable path:"
