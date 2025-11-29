@@ -174,6 +174,12 @@
         <div class="header">
             <h1>🌐 Proxy Browser</h1>
             
+            <div style="background: #fff3cd; padding: 12px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #ffc107;">
+                <small style="color: #856404;">
+                    ℹ️ <strong>First-time users:</strong> The server may take 30-60 seconds to wake up if it hasn't been used recently. Please be patient!
+                </small>
+            </div>
+            
             <div class="key-section">
                 <input type="text" id="nameInput" placeholder="Enter your name">
                 <input type="text" id="keyInput" placeholder="Enter access key">
@@ -229,12 +235,33 @@
                 return;
             }
             
+            // Show checking status
+            statusEl.textContent = '⏳ Checking...';
+            statusEl.className = '';
+            
+            const startTime = Date.now();
+            let wakeUpMessageShown = false;
+            
+            // Show wake-up message after 3 seconds
+            const wakeUpTimer = setTimeout(() => {
+                statusEl.textContent = '☕ Server is waking up... Please wait 30-60 seconds';
+                statusEl.className = 'key-invalid';
+                wakeUpMessageShown = true;
+            }, 3000);
+            
             try {
                 const response = await fetch(`${BACKEND_BASE}/validate?key=${key}&name=${encodeURIComponent(name)}`);
+                clearTimeout(wakeUpTimer);
                 const data = await response.json();
                 
+                const elapsed = Math.round((Date.now() - startTime) / 1000);
+                
                 if (data.valid) {
-                    statusEl.textContent = `✓ Welcome, ${name}!`;
+                    let message = `✓ Welcome, ${name}!`;
+                    if (wakeUpMessageShown || elapsed > 10) {
+                        message += ` (Server took ${elapsed}s to wake up)`;
+                    }
+                    statusEl.textContent = message;
                     statusEl.className = 'key-valid';
                     isKeyValid = true;
                     urlInput.disabled = false;
@@ -248,7 +275,8 @@
                     goButton.disabled = true;
                 }
             } catch (error) {
-                statusEl.textContent = '✗ Error checking key';
+                clearTimeout(wakeUpTimer);
+                statusEl.textContent = '✗ Error: Server might be offline';
                 statusEl.className = 'key-invalid';
                 console.error('Validation error:', error);
             }
@@ -281,23 +309,47 @@
                 fullUrl = 'https://' + url;
             }
             
-            contentEl.innerHTML = '<div class="loading">⏳ Loading page...</div>';
+            const startTime = Date.now();
+            let loadingMessage = '⏳ Loading page...';
+            contentEl.innerHTML = `<div class="loading">${loadingMessage}</div>`;
+            
+            // Update message if taking too long
+            const slowTimer = setTimeout(() => {
+                contentEl.innerHTML = '<div class="loading">🌐 Fetching page through proxy... This may take a moment</div>';
+            }, 5000);
+            
+            const verySlowTimer = setTimeout(() => {
+                contentEl.innerHTML = '<div class="loading">☕ Server might be waking up... Please wait up to 60 seconds</div>';
+            }, 15000);
             
             try {
                 const response = await fetch(`${BACKEND_BASE}/proxy?url=${encodeURIComponent(fullUrl)}`);
+                clearTimeout(slowTimer);
+                clearTimeout(verySlowTimer);
                 
                 if (!response.ok) {
                     throw new Error(`HTTP error! status: ${response.status}`);
                 }
                 
                 const html = await response.text();
+                const elapsed = Math.round((Date.now() - startTime) / 1000);
+                
                 contentEl.innerHTML = html;
+                
+                // Show load time if it was slow
+                if (elapsed > 10) {
+                    console.log(`Page loaded in ${elapsed} seconds`);
+                }
             } catch (error) {
+                clearTimeout(slowTimer);
+                clearTimeout(verySlowTimer);
+                
                 contentEl.innerHTML = `
                     <div class="error">
                         <h3>❌ Error Loading Page</h3>
                         <p>${error.message}</p>
                         <p>URL: ${fullUrl}</p>
+                        <p><small>If this is your first request, the server may still be waking up. Please try again in a moment.</small></p>
                     </div>
                 `;
                 console.error('Proxy error:', error);
