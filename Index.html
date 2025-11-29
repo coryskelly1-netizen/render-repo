@@ -4,6 +4,17 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Proxy Browser</title>
+    <script>
+        // Open in about:blank to hide from history
+        if (window.location.href.indexOf('about:blank') === -1) {
+            const newWindow = window.open('about:blank', '_blank');
+            if (newWindow) {
+                newWindow.document.write(document.documentElement.outerHTML);
+                newWindow.document.close();
+                window.close();
+            }
+        }
+    </script>
     <style>
         * {
             margin: 0;
