@@ -1,24 +1,302 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Proxy Browser</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            margin-bottom: 20px;
+        }
+        
+        h1 {
+            color: #667eea;
+            margin-bottom: 20px;
+            font-size: 2em;
+        }
+        
+        .url-bar {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        
+        #urlInput {
+            flex: 1;
+            padding: 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+        
+        #urlInput:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        button {
+            padding: 15px 30px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        
+        button:hover {
+            background: #5568d3;
+        }
+        
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        
+        .key-section {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        
+        #keyInput {
+            padding: 10px 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            width: 200px;
+        }
+        
+        #keyStatus {
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 600;
+        }
+        
+        .key-valid {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .key-invalid {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        
+        .content-frame {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            min-height: 600px;
+            overflow: hidden;
+        }
+        
+        #content {
+            width: 100%;
+            padding: 20px;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 50px;
+            color: #667eea;
+            font-size: 18px;
+        }
+        
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px;
+        }
+        
+        .quick-links {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-top: 10px;
+        }
+        
+        .quick-link {
+            padding: 8px 16px;
+            background: #f0f0f0;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.3s;
+        }
+        
+        .quick-link:hover {
+            background: #e0e0e0;
+        }
+    </style>
 </head>
 <body>
-    <h1>Proxy Browser</h1>
-    <input type="text" id="urlInput" placeholder="Enter URL">
-    <button onclick="loadPage()">Go</button>
-    <div id="content"></div>
+    <div class="container">
+        <div class="header">
+            <h1>🌐 Proxy Browser</h1>
+            
+            <div class="key-section">
+                <input type="text" id="keyInput" placeholder="Enter access key">
+                <button onclick="validateKey()">Validate Key</button>
+                <span id="keyStatus"></span>
+            </div>
+            
+            <div style="height: 20px;"></div>
+            
+            <div class="url-bar">
+                <input type="text" id="urlInput" placeholder="Enter URL (e.g., https://example.com)" disabled>
+                <button id="goButton" onclick="loadPage()" disabled>Go</button>
+            </div>
+            
+            <div class="quick-links">
+                <div class="quick-link" onclick="setUrl('https://example.com')">Example.com</div>
+                <div class="quick-link" onclick="setUrl('https://wikipedia.org')">Wikipedia</div>
+                <div class="quick-link" onclick="setUrl('https://news.ycombinator.com')">Hacker News</div>
+            </div>
+        </div>
+        
+        <div class="content-frame">
+            <div id="content">
+                <div class="loading">
+                    👋 Enter your access key to start browsing
+                </div>
+            </div>
+        </div>
+    </div>
 
     <script>
         // Set this to your Render URL
         const BACKEND_BASE = "https://render-repo-osyl.onrender.com";
+        
+        let isKeyValid = false;
+
+        async function validateKey() {
+            const key = document.getElementById('keyInput').value.trim();
+            const statusEl = document.getElementById('keyStatus');
+            const urlInput = document.getElementById('urlInput');
+            const goButton = document.getElementById('goButton');
+            
+            if (!key) {
+                statusEl.textContent = 'Please enter a key';
+                statusEl.className = 'key-invalid';
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${BACKEND_BASE}/validate?key=${key}`);
+                const data = await response.json();
+                
+                if (data.valid) {
+                    statusEl.textContent = '✓ Valid Key';
+                    statusEl.className = 'key-valid';
+                    isKeyValid = true;
+                    urlInput.disabled = false;
+                    goButton.disabled = false;
+                    document.getElementById('content').innerHTML = '<div class="loading">Ready! Enter a URL above to browse.</div>';
+                } else {
+                    statusEl.textContent = '✗ Invalid Key';
+                    statusEl.className = 'key-invalid';
+                    isKeyValid = false;
+                    urlInput.disabled = true;
+                    goButton.disabled = true;
+                }
+            } catch (error) {
+                statusEl.textContent = '✗ Error checking key';
+                statusEl.className = 'key-invalid';
+                console.error('Validation error:', error);
+            }
+        }
+
+        function setUrl(url) {
+            if (isKeyValid) {
+                document.getElementById('urlInput').value = url;
+                loadPage();
+            }
+        }
 
         async function loadPage() {
-            const url = document.getElementById('urlInput').value;
-            const response = await fetch(`${BACKEND_BASE}/proxy?url=${encodeURIComponent(url)}`);
-            const html = await response.text();
-            document.getElementById('content').innerHTML = html;
+            if (!isKeyValid) {
+                alert('Please validate your access key first');
+                return;
+            }
+            
+            const url = document.getElementById('urlInput').value.trim();
+            const contentEl = document.getElementById('content');
+            
+            if (!url) {
+                alert('Please enter a URL');
+                return;
+            }
+            
+            // Add https:// if missing
+            let fullUrl = url;
+            if (!url.startsWith('http://') && !url.startsWith('https://')) {
+                fullUrl = 'https://' + url;
+            }
+            
+            contentEl.innerHTML = '<div class="loading">⏳ Loading page...</div>';
+            
+            try {
+                const response = await fetch(`${BACKEND_BASE}/proxy?url=${encodeURIComponent(fullUrl)}`);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const html = await response.text();
+                contentEl.innerHTML = html;
+            } catch (error) {
+                contentEl.innerHTML = `
+                    <div class="error">
+                        <h3>❌ Error Loading Page</h3>
+                        <p>${error.message}</p>
+                        <p>URL: ${fullUrl}</p>
+                    </div>
+                `;
+                console.error('Proxy error:', error);
+            }
         }
+        
+        // Allow Enter key to submit
+        document.getElementById('urlInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter' && isKeyValid) {
+                loadPage();
+            }
+        });
+        
+        document.getElementById('keyInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                validateKey();
+            }
+        });
     </script>
 </body>
 </html>
