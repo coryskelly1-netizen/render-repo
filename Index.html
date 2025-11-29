@@ -1,3 +1,24 @@
-<script>
-  const BACKEND_BASE = "https://render-repo-osyl.onrender.com";
-</script>
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Proxy Browser</title>
+</head>
+<body>
+    <h1>Proxy Browser</h1>
+    <input type="text" id="urlInput" placeholder="Enter URL">
+    <button onclick="loadPage()">Go</button>
+    <div id="content"></div>
+
+    <script>
+        // Set this to your Render URL
+        const BACKEND_BASE = "https://render-repo-osyl.onrender.com";
+
+        async function loadPage() {
+            const url = document.getElementById('urlInput').value;
+            const response = await fetch(`${BACKEND_BASE}/proxy?url=${encodeURIComponent(url)}`);
+            const html = await response.text();
+            document.getElementById('content').innerHTML = html;
+        }
+    </script>
+</body>
+</html>

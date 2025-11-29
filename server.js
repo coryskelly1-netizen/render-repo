@@ -10,6 +10,19 @@ app.use(cors());
 // Centralized valid keys
 let VALID_KEYS = ["8392017", "4928371", "1029384"];
 
+// Root endpoint
+app.get("/", (req, res) => {
+  res.json({ 
+    status: "online",
+    service: "Puppeteer Proxy Server",
+    endpoints: {
+      health: "/health",
+      validate: "/validate?key=YOUR_KEY",
+      proxy: "/proxy?url=YOUR_URL"
+    }
+  });
+});
+
 // Health check
 app.get("/health", (req, res) => {
   res.json({ status: "ok", service: "puppeteer-proxy" });
