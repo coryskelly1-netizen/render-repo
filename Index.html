@@ -175,8 +175,9 @@
             <h1>🌐 Proxy Browser</h1>
             
             <div class="key-section">
+                <input type="text" id="nameInput" placeholder="Enter your name">
                 <input type="text" id="keyInput" placeholder="Enter access key">
-                <button onclick="validateKey()">Validate Key</button>
+                <button onclick="validateKey()">Validate</button>
                 <span id="keyStatus"></span>
             </div>
             
@@ -197,7 +198,7 @@
         <div class="content-frame">
             <div id="content">
                 <div class="loading">
-                    👋 Enter your access key to start browsing
+                    👋 Enter your name and access key to start browsing
                 </div>
             </div>
         </div>
@@ -211,6 +212,7 @@
 
         async function validateKey() {
             const key = document.getElementById('keyInput').value.trim();
+            const name = document.getElementById('nameInput').value.trim();
             const statusEl = document.getElementById('keyStatus');
             const urlInput = document.getElementById('urlInput');
             const goButton = document.getElementById('goButton');
@@ -221,19 +223,25 @@
                 return;
             }
             
+            if (!name) {
+                statusEl.textContent = 'Please enter your name';
+                statusEl.className = 'key-invalid';
+                return;
+            }
+            
             try {
-                const response = await fetch(`${BACKEND_BASE}/validate?key=${key}`);
+                const response = await fetch(`${BACKEND_BASE}/validate?key=${key}&name=${encodeURIComponent(name)}`);
                 const data = await response.json();
                 
                 if (data.valid) {
-                    statusEl.textContent = '✓ Valid Key';
+                    statusEl.textContent = `✓ Welcome, ${name}!`;
                     statusEl.className = 'key-valid';
                     isKeyValid = true;
                     urlInput.disabled = false;
                     goButton.disabled = false;
                     document.getElementById('content').innerHTML = '<div class="loading">Ready! Enter a URL above to browse.</div>';
                 } else {
-                    statusEl.textContent = '✗ Invalid Key';
+                    statusEl.textContent = '✗ Invalid Key or Name';
                     statusEl.className = 'key-invalid';
                     isKeyValid = false;
                     urlInput.disabled = true;
@@ -306,6 +314,12 @@
         document.getElementById('keyInput').addEventListener('keypress', function(e) {
             if (e.key === 'Enter') {
                 validateKey();
+            }
+        });
+        
+        document.getElementById('nameInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                document.getElementById('keyInput').focus();
             }
         });
     </script>

@@ -7,8 +7,12 @@ import chromium from "@sparticuz/chromium";
 const app = express();
 app.use(cors());
 
-// Centralized valid keys
-let VALID_KEYS = ["8392017", "4928371", "1029384"];
+// Centralized valid keys with names
+let VALID_KEYS = {
+  "8392017": "Alice",
+  "4928371": "Bob",
+  "1029384": "Charlie"
+};
 
 // Root endpoint
 app.get("/", (req, res) => {
@@ -31,8 +35,9 @@ app.get("/health", (req, res) => {
 // Key validation
 app.get("/validate", (req, res) => {
   const key = req.query.key;
-  const valid = VALID_KEYS.includes(key);
-  res.json({ valid });
+  const name = req.query.name;
+  const valid = VALID_KEYS[key] && VALID_KEYS[key].toLowerCase() === name?.toLowerCase();
+  res.json({ valid, expectedName: VALID_KEYS[key] });
 });
 
 // Proxy endpoint
