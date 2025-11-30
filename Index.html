@@ -3,18 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Proxy Browser</title>
-    <script>
-        // Open in about:blank to hide from history
-        if (window.location.href.indexOf('about:blank') === -1) {
-            const newWindow = window.open('about:blank', '_blank');
-            if (newWindow) {
-                newWindow.document.write(document.documentElement.outerHTML);
-                newWindow.document.close();
-                window.close();
-            }
-        }
-    </script>
+    <title>Proxy Login</title>
     <style>
         * {
             margin: 0;
@@ -26,226 +15,200 @@
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
             padding: 20px;
         }
         
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-        }
-        
-        .header {
+        .login-container {
             background: white;
-            padding: 30px;
-            border-radius: 15px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
-            margin-bottom: 20px;
+            padding: 50px;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            max-width: 450px;
+            width: 100%;
         }
         
         h1 {
             color: #667eea;
-            margin-bottom: 20px;
-            font-size: 2em;
+            margin-bottom: 10px;
+            font-size: 2.5em;
+            text-align: center;
         }
         
-        .url-bar {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 15px;
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 40px;
+            font-size: 14px;
         }
         
-        #urlInput {
-            flex: 1;
+        .form-group {
+            margin-bottom: 25px;
+        }
+        
+        label {
+            display: block;
+            color: #333;
+            font-weight: 600;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+        
+        input[type="text"] {
+            width: 100%;
             padding: 15px;
             border: 2px solid #e0e0e0;
-            border-radius: 8px;
+            border-radius: 10px;
             font-size: 16px;
             transition: border-color 0.3s;
         }
         
-        #urlInput:focus {
+        input[type="text"]:focus {
             outline: none;
             border-color: #667eea;
         }
         
-        button {
-            padding: 15px 30px;
+        .btn-login {
+            width: 100%;
+            padding: 15px;
             background: #667eea;
             color: white;
             border: none;
-            border-radius: 8px;
-            font-size: 16px;
+            border-radius: 10px;
+            font-size: 18px;
             font-weight: 600;
             cursor: pointer;
             transition: background 0.3s;
+            margin-top: 10px;
         }
         
-        button:hover {
+        .btn-login:hover:not(:disabled) {
             background: #5568d3;
         }
         
-        button:disabled {
+        .btn-login:disabled {
             background: #ccc;
             cursor: not-allowed;
         }
         
-        .key-section {
-            display: flex;
-            gap: 10px;
-            align-items: center;
-        }
-        
-        #keyInput {
-            padding: 10px 15px;
-            border: 2px solid #e0e0e0;
-            border-radius: 8px;
-            font-size: 14px;
-            width: 200px;
-        }
-        
-        #keyStatus {
-            padding: 8px 16px;
-            border-radius: 6px;
-            font-size: 14px;
+        .btn-launch {
+            width: 100%;
+            padding: 15px;
+            background: #28a745;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 18px;
             font-weight: 600;
+            cursor: pointer;
+            transition: background 0.3s;
+            margin-top: 20px;
+            display: none;
         }
         
-        .key-valid {
+        .btn-launch:hover {
+            background: #218838;
+        }
+        
+        .status {
+            padding: 12px;
+            border-radius: 8px;
+            margin-top: 15px;
+            text-align: center;
+            font-weight: 600;
+            display: none;
+        }
+        
+        .status-valid {
             background: #d4edda;
             color: #155724;
+            display: block;
         }
         
-        .key-invalid {
+        .status-invalid {
             background: #f8d7da;
             color: #721c24;
+            display: block;
         }
         
-        .content-frame {
-            background: white;
-            border-radius: 15px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
-            min-height: 600px;
-            overflow: hidden;
+        .status-loading {
+            background: #fff3cd;
+            color: #856404;
+            display: block;
         }
         
-        #content {
-            width: 100%;
-            padding: 20px;
-        }
-        
-        .loading {
-            text-align: center;
-            padding: 50px;
-            color: #667eea;
-            font-size: 18px;
-        }
-        
-        .error {
-            background: #f8d7da;
-            color: #721c24;
-            padding: 20px;
+        .info-box {
+            background: #e7f3ff;
+            padding: 15px;
             border-radius: 8px;
-            margin: 20px;
-        }
-        
-        .quick-links {
-            display: flex;
-            gap: 10px;
-            flex-wrap: wrap;
-            margin-top: 10px;
-        }
-        
-        .quick-link {
-            padding: 8px 16px;
-            background: #f0f0f0;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 14px;
-            transition: background 0.3s;
-        }
-        
-        .quick-link:hover {
-            background: #e0e0e0;
+            border-left: 4px solid #667eea;
+            margin-bottom: 30px;
+            font-size: 13px;
+            color: #333;
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <div class="header">
-            <h1>🌐 Proxy Browser</h1>
-            
-            <div style="background: #fff3cd; padding: 12px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #ffc107;">
-                <small style="color: #856404;">
-                    ℹ️ <strong>First-time users:</strong> The server may take 30-60 seconds to wake up if it hasn't been used recently. Please be patient!
-                </small>
-            </div>
-            
-            <div class="key-section">
-                <input type="text" id="nameInput" placeholder="Enter your name">
-                <input type="text" id="keyInput" placeholder="Enter access key">
-                <button onclick="validateKey()">Validate</button>
-                <span id="keyStatus"></span>
-            </div>
-            
-            <div style="height: 20px;"></div>
-            
-            <div class="url-bar">
-                <input type="text" id="urlInput" placeholder="Enter URL (e.g., https://example.com)" disabled>
-                <button id="goButton" onclick="loadPage()" disabled>Go</button>
-            </div>
-            
-            <div class="quick-links">
-                <div class="quick-link" onclick="setUrl('https://example.com')">Example.com</div>
-                <div class="quick-link" onclick="setUrl('https://wikipedia.org')">Wikipedia</div>
-                <div class="quick-link" onclick="setUrl('https://news.ycombinator.com')">Hacker News</div>
-            </div>
+    <div class="login-container">
+        <h1>🌐 Proxy Login</h1>
+        <p class="subtitle">Secure Browser Access</p>
+        
+        <div class="info-box">
+            ℹ️ <strong>First-time users:</strong> The server may take 30-60 seconds to wake up. Please be patient!
         </div>
         
-        <div class="content-frame">
-            <div id="content">
-                <div class="loading">
-                    👋 Enter your name and access key to start browsing
-                </div>
+        <div id="loginForm">
+            <div class="form-group">
+                <label for="nameInput">First and Last Name:</label>
+                <input type="text" id="nameInput" placeholder="e.g., John Doe" autocomplete="off">
             </div>
+            
+            <div class="form-group">
+                <label for="keyInput">Access Key:</label>
+                <input type="text" id="keyInput" placeholder="Enter your access key" autocomplete="off">
+            </div>
+            
+            <button class="btn-login" id="loginBtn" onclick="authenticate()">Login</button>
+            
+            <div class="status" id="status"></div>
         </div>
+        
+        <button class="btn-launch" id="launchBtn" onclick="launchProxy()">
+            🚀 Launch Proxy Browser
+        </button>
     </div>
 
     <script>
-        // Set this to your Render URL
         const BACKEND_BASE = "https://render-repo-osyl.onrender.com";
+        let userName = '';
         
-        let isKeyValid = false;
-
-        async function validateKey() {
-            const key = document.getElementById('keyInput').value.trim();
+        async function authenticate() {
             const name = document.getElementById('nameInput').value.trim();
-            const statusEl = document.getElementById('keyStatus');
-            const urlInput = document.getElementById('urlInput');
-            const goButton = document.getElementById('goButton');
-            
-            if (!key) {
-                statusEl.textContent = 'Please enter a key';
-                statusEl.className = 'key-invalid';
-                return;
-            }
+            const key = document.getElementById('keyInput').value.trim();
+            const status = document.getElementById('status');
+            const loginBtn = document.getElementById('loginBtn');
+            const launchBtn = document.getElementById('launchBtn');
             
             if (!name) {
-                statusEl.textContent = 'Please enter your name';
-                statusEl.className = 'key-invalid';
+                showStatus('Please enter your first and last name', 'invalid');
                 return;
             }
             
-            // Show checking status
-            statusEl.textContent = '⏳ Checking...';
-            statusEl.className = '';
+            if (!key) {
+                showStatus('Please enter your access key', 'invalid');
+                return;
+            }
+            
+            loginBtn.disabled = true;
+            showStatus('⏳ Checking credentials...', 'loading');
             
             const startTime = Date.now();
             let wakeUpMessageShown = false;
             
-            // Show wake-up message after 3 seconds
             const wakeUpTimer = setTimeout(() => {
-                statusEl.textContent = '☕ Server is waking up... Please wait 30-60 seconds';
-                statusEl.className = 'key-invalid';
+                showStatus('☕ Server is waking up... Please wait 30-60 seconds', 'loading');
                 wakeUpMessageShown = true;
             }, 3000);
             
@@ -257,122 +220,440 @@
                 const elapsed = Math.round((Date.now() - startTime) / 1000);
                 
                 if (data.valid) {
+                    userName = name;
                     let message = `✓ Welcome, ${name}!`;
                     if (wakeUpMessageShown || elapsed > 10) {
-                        message += ` (Server took ${elapsed}s to wake up)`;
+                        message += ` (Server took ${elapsed}s)`;
                     }
-                    statusEl.textContent = message;
-                    statusEl.className = 'key-valid';
-                    isKeyValid = true;
-                    urlInput.disabled = false;
-                    goButton.disabled = false;
-                    document.getElementById('content').innerHTML = '<div class="loading">Ready! Enter a URL above to browse.</div>';
+                    showStatus(message, 'valid');
+                    
+                    // Hide login form, show launch button
+                    document.getElementById('loginForm').style.display = 'none';
+                    launchBtn.style.display = 'block';
                 } else {
-                    statusEl.textContent = '✗ Invalid Key or Name';
-                    statusEl.className = 'key-invalid';
-                    isKeyValid = false;
-                    urlInput.disabled = true;
-                    goButton.disabled = true;
+                    showStatus('✗ Invalid name or access key', 'invalid');
+                    loginBtn.disabled = false;
                 }
             } catch (error) {
                 clearTimeout(wakeUpTimer);
-                statusEl.textContent = '✗ Error: Server might be offline';
-                statusEl.className = 'key-invalid';
-                console.error('Validation error:', error);
+                console.error('Auth error:', error);
+                showStatus('✗ Connection error - Server might be offline', 'invalid');
+                loginBtn.disabled = false;
             }
         }
-
-        function setUrl(url) {
-            if (isKeyValid) {
-                document.getElementById('urlInput').value = url;
-                loadPage();
+        
+        function launchProxy() {
+            // Create the proxy HTML content
+            const proxyHTML = createProxyHTML();
+            
+            // Open in new about:blank window
+            const proxyWindow = window.open('about:blank', '_blank');
+            if (proxyWindow) {
+                proxyWindow.document.write(proxyHTML);
+                proxyWindow.document.close();
+            } else {
+                alert('Please allow pop-ups to launch the proxy browser');
             }
         }
+        
+        function showStatus(message, type) {
+            const status = document.getElementById('status');
+            status.textContent = message;
+            status.className = `status status-${type}`;
+        }
+        
+        function createProxyHTML() {
+            return `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Remote Browser</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #1a1a1a;
+            color: white;
+            overflow: hidden;
+            height: 100vh;
+        }
+        
+        .container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+        
+        .toolbar {
+            background: #2d2d2d;
+            padding: 15px;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+            z-index: 100;
+        }
+        
+        .url-bar {
+            flex: 1;
+            display: flex;
+            gap: 8px;
+        }
+        
+        input[type="text"] {
+            flex: 1;
+            padding: 10px 15px;
+            border: 2px solid #444;
+            border-radius: 6px;
+            background: #1a1a1a;
+            color: white;
+            font-size: 14px;
+        }
+        
+        input[type="text"]:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        button {
+            padding: 10px 20px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        
+        button:hover:not(:disabled) {
+            background: #5568d3;
+        }
+        
+        button:disabled {
+            background: #444;
+            cursor: not-allowed;
+        }
+        
+        select {
+            padding: 10px;
+            background: #1a1a1a;
+            color: white;
+            border: 2px solid #444;
+            border-radius: 6px;
+        }
+        
+        .status {
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 600;
+            background: #28a745;
+        }
+        
+        .page-info {
+            font-size: 12px;
+            color: #999;
+            padding: 0 5px;
+        }
+        
+        .browser-window {
+            flex: 1;
+            background: #000;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .browser-content {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+        
+        .browser-content img {
+            max-width: 100%;
+            max-height: 100%;
+            cursor: pointer;
+            display: block;
+        }
+        
+        .loading-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 50;
+        }
+        
+        .loading-content {
+            text-align: center;
+        }
+        
+        .spinner {
+            border: 4px solid #333;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .message {
+            text-align: center;
+            padding: 40px;
+            color: #999;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="toolbar">
+            <span class="status">👤 ${userName}</span>
+            
+            <div class="url-bar">
+                <input type="text" id="urlInput" placeholder="Enter URL (e.g., https://example.com)">
+                <button id="goButton" onclick="navigate()">Go</button>
+                <button onclick="refresh()">🔄</button>
+                <select id="qualitySelect" onchange="updateQuality()">
+                    <option value="low">Fast (Low Quality)</option>
+                    <option value="medium" selected>Balanced</option>
+                    <option value="high">Slow (High Quality)</option>
+                </select>
+            </div>
+            
+            <span id="pageInfo" class="page-info"></span>
+        </div>
+        
+        <div class="browser-window">
+            <div class="browser-content" id="browserContent">
+                <div class="message">
+                    🌐 Initializing browser session...
+                </div>
+            </div>
+        </div>
+    </div>
 
-        async function loadPage() {
-            if (!isKeyValid) {
-                alert('Please validate your access key first');
-                return;
-            }
-            
-            const url = document.getElementById('urlInput').value.trim();
-            const contentEl = document.getElementById('content');
-            
-            if (!url) {
-                alert('Please enter a URL');
-                return;
-            }
-            
-            // Add https:// if missing
-            let fullUrl = url;
-            if (!url.startsWith('http://') && !url.startsWith('https://')) {
-                fullUrl = 'https://' + url;
-            }
-            
-            const startTime = Date.now();
-            let loadingMessage = '⏳ Loading page...';
-            contentEl.innerHTML = `<div class="loading">${loadingMessage}</div>`;
-            
-            // Update message if taking too long
-            const slowTimer = setTimeout(() => {
-                contentEl.innerHTML = '<div class="loading">🌐 Fetching page through proxy... This may take a moment</div>';
-            }, 5000);
-            
-            const verySlowTimer = setTimeout(() => {
-                contentEl.innerHTML = '<div class="loading">☕ Server might be waking up... Please wait up to 60 seconds</div>';
-            }, 15000);
+    <script>
+        const BACKEND_BASE = "${BACKEND_BASE}";
+        
+        let sessionId = null;
+        let currentScreenshot = null;
+        let refreshInterval = null;
+        let currentQuality = 'medium';
+
+        async function createSession() {
+            showLoading('Creating browser session...');
             
             try {
-                const response = await fetch(`${BACKEND_BASE}/proxy?url=${encodeURIComponent(fullUrl)}`);
-                clearTimeout(slowTimer);
-                clearTimeout(verySlowTimer);
+                const response = await fetch(BACKEND_BASE + '/session/create', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
                 
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
+                const data = await response.json();
                 
-                const html = await response.text();
-                const elapsed = Math.round((Date.now() - startTime) / 1000);
-                
-                contentEl.innerHTML = html;
-                
-                // Show load time if it was slow
-                if (elapsed > 10) {
-                    console.log(`Page loaded in ${elapsed} seconds`);
+                if (data.success) {
+                    sessionId = data.sessionId;
+                    console.log('Session created:', sessionId);
+                    hideLoading();
+                    showMessage('Browser ready! Enter a URL above to start.');
+                    startAutoRefresh();
+                } else {
+                    throw new Error('Failed to create session');
                 }
             } catch (error) {
-                clearTimeout(slowTimer);
-                clearTimeout(verySlowTimer);
-                
-                contentEl.innerHTML = `
-                    <div class="error">
-                        <h3>❌ Error Loading Page</h3>
-                        <p>${error.message}</p>
-                        <p>URL: ${fullUrl}</p>
-                        <p><small>If this is your first request, the server may still be waking up. Please try again in a moment.</small></p>
-                    </div>
-                `;
-                console.error('Proxy error:', error);
+                console.error('Session creation error:', error);
+                showMessage('Failed to create browser session. Please refresh the page.');
             }
         }
-        
-        // Allow Enter key to submit
-        document.getElementById('urlInput').addEventListener('keypress', function(e) {
-            if (e.key === 'Enter' && isKeyValid) {
-                loadPage();
+
+        async function navigate() {
+            if (!sessionId) return;
+            
+            let url = document.getElementById('urlInput').value.trim();
+            if (!url) return;
+            
+            if (!url.startsWith('http://') && !url.startsWith('https://')) {
+                url = 'https://' + url;
+            }
+            
+            showLoading('Loading page...');
+            
+            try {
+                const response = await fetch(BACKEND_BASE + '/session/navigate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ sessionId, url })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    updatePageInfo(data.title, data.url);
+                    await updateScreenshot();
+                } else {
+                    throw new Error(data.message || 'Navigation failed');
+                }
+            } catch (error) {
+                console.error('Navigation error:', error);
+                hideLoading();
+                showMessage('Failed to load page: ' + error.message);
+            }
+        }
+
+        async function updateScreenshot() {
+            if (!sessionId) return;
+            
+            try {
+                const response = await fetch(BACKEND_BASE + '/session/screenshot/' + sessionId + '?quality=' + currentQuality);
+                const data = await response.json();
+                
+                if (data.success) {
+                    currentScreenshot = data.screenshot;
+                    displayScreenshot(data.screenshot);
+                    updatePageInfo(data.title, data.url);
+                    hideLoading();
+                }
+            } catch (error) {
+                console.error('Screenshot error:', error);
+            }
+        }
+
+        function displayScreenshot(screenshot) {
+            const content = document.getElementById('browserContent');
+            content.innerHTML = '<img src="' + screenshot + '" onclick="handleClick(event)" alt="Browser view">';
+        }
+
+        async function handleClick(event) {
+            if (!sessionId) return;
+            
+            const img = event.target;
+            const rect = img.getBoundingClientRect();
+            
+            const scaleX = 1280 / img.width;
+            const scaleY = 800 / img.height;
+            
+            const x = (event.clientX - rect.left) * scaleX;
+            const y = (event.clientY - rect.top) * scaleY;
+            
+            console.log('Click at:', x, y);
+            
+            showLoading('Processing click...');
+            
+            try {
+                const response = await fetch(BACKEND_BASE + '/session/click', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ sessionId, x, y })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    updatePageInfo(data.title, data.url);
+                    setTimeout(() => updateScreenshot(), 300);
+                } else {
+                    hideLoading();
+                }
+            } catch (error) {
+                console.error('Click error:', error);
+                hideLoading();
+            }
+        }
+
+        function startAutoRefresh() {
+            refreshInterval = setInterval(() => {
+                if (sessionId && !document.querySelector('.loading-overlay')) {
+                    updateScreenshot();
+                }
+            }, 1000);
+        }
+
+        function refresh() {
+            if (sessionId) {
+                updateScreenshot();
+            }
+        }
+
+        function updateQuality() {
+            currentQuality = document.getElementById('qualitySelect').value;
+            console.log('Quality changed to:', currentQuality);
+            if (sessionId) {
+                updateScreenshot();
+            }
+        }
+
+        function updatePageInfo(title, url) {
+            const pageInfo = document.getElementById('pageInfo');
+            pageInfo.textContent = title + ' - ' + url;
+            document.getElementById('urlInput').value = url;
+        }
+
+        function showLoading(message) {
+            const content = document.getElementById('browserContent');
+            const overlay = document.createElement('div');
+            overlay.className = 'loading-overlay';
+            overlay.innerHTML = '<div class="loading-content"><div class="spinner"></div><div>' + message + '</div></div>';
+            content.appendChild(overlay);
+        }
+
+        function hideLoading() {
+            const overlay = document.querySelector('.loading-overlay');
+            if (overlay) overlay.remove();
+        }
+
+        function showMessage(message) {
+            const content = document.getElementById('browserContent');
+            content.innerHTML = '<div class="message">' + message + '</div>';
+        }
+
+        document.getElementById('urlInput').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') navigate();
+        });
+
+        window.addEventListener('beforeunload', async () => {
+            if (sessionId) {
+                navigator.sendBeacon(BACKEND_BASE + '/session/close', JSON.stringify({ sessionId }));
+            }
+            if (refreshInterval) {
+                clearInterval(refreshInterval);
             }
         });
+
+        // Auto-start
+        createSession();
+    </script>
+</body>
+</html>`;
+        }
         
-        document.getElementById('keyInput').addEventListener('keypress', function(e) {
-            if (e.key === 'Enter') {
-                validateKey();
-            }
+        // Handle Enter key
+        document.getElementById('nameInput').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') document.getElementById('keyInput').focus();
         });
         
-        document.getElementById('nameInput').addEventListener('keypress', function(e) {
-            if (e.key === 'Enter') {
-                document.getElementById('keyInput').focus();
-            }
+        document.getElementById('keyInput').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') authenticate();
         });
     </script>
 </body>
