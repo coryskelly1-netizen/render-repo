@@ -112,6 +112,24 @@
             background: #218838;
         }
         
+        .btn-wakeup {
+            width: 100%;
+            padding: 12px;
+            background: #ffc107;
+            color: #000;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.3s;
+            margin-top: 15px;
+        }
+        
+        .btn-wakeup:hover {
+            background: #e0a800;
+        }
+        
         .status {
             padding: 12px;
             border-radius: 8px;
@@ -172,6 +190,8 @@
             
             <button class="btn-login" id="loginBtn" onclick="authenticate()">Login</button>
             
+            <button class="btn-wakeup" onclick="wakeUpServer()">☕ Wake Up Server (if sleeping)</button>
+            
             <div class="status" id="status"></div>
         </div>
         
@@ -184,12 +204,44 @@
         const BACKEND_BASE = "https://render-repo-osyl.onrender.com";
         let userName = '';
         
+        // Test function to check if script is working
+        console.log('Script loaded successfully!');
+        
+        async function wakeUpServer() {
+            const wakeBtn = event.target;
+            wakeBtn.disabled = true;
+            wakeBtn.textContent = '⏳ Waking up server...';
+            showStatus('Pinging server to wake it up...', 'loading');
+            
+            try {
+                const response = await fetch(`${BACKEND_BASE}/health`);
+                const data = await response.json();
+                
+                if (data.status === 'ok') {
+                    showStatus('✓ Server is awake and ready!', 'valid');
+                    wakeBtn.textContent = '✓ Server is Awake';
+                    setTimeout(() => {
+                        wakeBtn.disabled = false;
+                        wakeBtn.textContent = '☕ Wake Up Server (if sleeping)';
+                    }, 3000);
+                }
+            } catch (error) {
+                showStatus('Server is still waking up... Try again in 30 seconds', 'loading');
+                wakeBtn.disabled = false;
+                wakeBtn.textContent = '☕ Wake Up Server (if sleeping)';
+            }
+        }
+        
         async function authenticate() {
+            console.log('Authenticate function called!');
+            
             const name = document.getElementById('nameInput').value.trim();
             const key = document.getElementById('keyInput').value.trim();
             const status = document.getElementById('status');
             const loginBtn = document.getElementById('loginBtn');
             const launchBtn = document.getElementById('launchBtn');
+            
+            console.log('Name:', name, 'Key:', key);
             
             if (!name) {
                 showStatus('Please enter your first and last name', 'invalid');
@@ -213,9 +265,13 @@
             }, 3000);
             
             try {
+                console.log('Sending request to:', `${BACKEND_BASE}/validate?key=${key}&name=${encodeURIComponent(name)}`);
+                
                 const response = await fetch(`${BACKEND_BASE}/validate?key=${key}&name=${encodeURIComponent(name)}`);
                 clearTimeout(wakeUpTimer);
                 const data = await response.json();
+                
+                console.log('Response:', data);
                 
                 const elapsed = Math.round((Date.now() - startTime) / 1000);
                 
@@ -261,7 +317,6 @@
             status.textContent = message;
             status.className = `status status-${type}`;
         }
-        
         function createProxyHTML() {
             return `<!DOCTYPE html>
 <html lang="en">
@@ -644,10 +699,10 @@
         createSession();
     </script>
 </body>
-</html>`;
+</html>\`;
         }
         
-        // Handle Enter key
+        // Handle Enter key in login form
         document.getElementById('nameInput').addEventListener('keypress', (e) => {
             if (e.key === 'Enter') document.getElementById('keyInput').focus();
         });
