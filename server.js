@@ -18,6 +18,9 @@ let VALID_KEYS = {
 // Store active browser sessions
 const sessions = new Map();
 
+// Store navigation logs for ToS enforcement
+const navigationLogs = [];
+
 // Session cleanup after 15 minutes of inactivity
 const SESSION_TIMEOUT = 15 * 60 * 1000;
 
@@ -59,6 +62,7 @@ app.get("/validate", (req, res) => {
 // Create new browser session
 app.post("/session/create", async (req, res) => {
   const sessionId = generateSessionId();
+  const { userName, userKey } = req.body;
   
   try {
     const browser = await puppeteer.launch({
@@ -77,13 +81,27 @@ app.post("/session/create", async (req, res) => {
       browser,
       page,
       lastActivity: Date.now(),
-      timeout: null
+      timeout: null,
+      userName: userName || 'Unknown',
+      userKey: userKey || 'Unknown'
     };
     
     sessions.set(sessionId, session);
     
     // Set cleanup timeout
     resetSessionTimeout(sessionId);
+    
+    // Log session creation
+    const logEntry = {
+      timestamp: new Date().toISOString(),
+      sessionId,
+      userName: session.userName,
+      userKey: session.userKey,
+      action: 'SESSION_CREATED',
+      ip: req.ip || req.connection.remoteAddress
+    };
+    navigationLogs.push(logEntry);
+    console.log('📝 LOG:', JSON.stringify(logEntry));
     
     console.log(`Session created: ${sessionId}`);
     res.json({ success: true, sessionId });
@@ -113,6 +131,20 @@ app.post("/session/navigate", async (req, res) => {
     
     const title = await session.page.title();
     const currentUrl = session.page.url();
+    
+    // Log navigation
+    const logEntry = {
+      timestamp: new Date().toISOString(),
+      sessionId,
+      userName: session.userName,
+      userKey: session.userKey,
+      action: 'NAVIGATE',
+      url: currentUrl,
+      pageTitle: title,
+      ip: req.ip || req.connection.remoteAddress
+    };
+    navigationLogs.push(logEntry);
+    console.log('📝 LOG:', JSON.stringify(logEntry));
     
     res.json({ 
       success: true, 
@@ -234,6 +266,38 @@ app.post("/session/close", async (req, res) => {
   
   await closeSession(sessionId);
   res.json({ success: true });
+});
+
+// Get navigation logs (for ToS enforcement)
+app.get("/admin/logs", (req, res) => {
+  // Optional: Add admin authentication here
+  const adminKey = req.query.adminKey;
+  
+  // Simple admin key check (you can change this)
+  if (adminKey !== 'admin_secure_key_123') {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+  
+  res.json({ 
+    success: true, 
+    logs: navigationLogs,
+    totalLogs: navigationLogs.length
+  });
+});
+
+// Clear logs (admin only)
+app.post("/admin/clear-logs", (req, res) => {
+  const { adminKey } = req.body;
+  
+  if (adminKey !== 'admin_secure_key_123') {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+  
+  const clearedCount = navigationLogs.length;
+  navigationLogs.length = 0;
+  
+  console.log(`🗑️ Cleared ${clearedCount} log entries`);
+  res.json({ success: true, clearedCount });
 });
 
 // Helper functions

@@ -522,7 +522,11 @@
             try {
                 const response = await fetch(BACKEND_BASE + '/session/create', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' }
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        userName: '${userName}',
+                        userKey: 'hidden'
+                    })
                 });
                 
                 const data = await response.json();
