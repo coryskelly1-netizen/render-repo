@@ -14,9 +14,9 @@
     .panel-left{padding:36px;background:linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,.02)); color:white}
     .logo{font-size:22px;font-weight:700;color:#fff;display:flex;gap:10px;align-items:center}
     .hero-title{font-size:28px;margin-top:18px;color:#fff;font-weight:700}
-    .hero-sub{color:var(--muted);margin-top:8px;font-size:14px}
+    .hero-sub{color:rgba(255,255,255,0.7);margin-top:8px;font-size:14px}
     .info-box{background:rgba(255,255,255,0.05);border-left:4px solid rgba(255,255,255,0.12);padding:12px;margin-top:18px;border-radius:8px}
-    .preview{height:100%;background:#0b0b0b;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#999;font-size:14px;overflow:hidden}
+    .preview{height:100%;background:#0b0b0b;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#999;font-size:14px;overflow:hidden;min-height:200px}
     .panel-right{background:var(--card-bg);padding:32px;min-width:320px}
     h1{margin:0;font-size:22px;color:var(--accent);text-align:center}
     .subtitle{font-size:13px;color:#666;text-align:center;margin-top:4px;margin-bottom:16px}
@@ -24,10 +24,13 @@
     label{display:block;font-size:13px;color:#333;margin-bottom:6px;font-weight:600}
     input[type="text"]{width:100%;padding:12px 14px;border-radius:10px;border:1px solid #e6e6e6;font-size:15px}
     input[type="text"]:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 4px rgba(74,93,230,.06)}
-    .btn{padding:12px 14px;border-radius:10px;border:0;font-weight:700;cursor:pointer}
+    .btn{padding:12px 14px;border-radius:10px;border:0;font-weight:700;cursor:pointer;transition:background 0.2s}
     .btn-primary{background:var(--accent);color:white;width:100%;margin-top:8px}
+    .btn-primary:hover{background:#3a4dd6}
     .btn-wakeup{background:#ffd34d;color:#222;width:100%;margin-top:10px}
+    .btn-wakeup:hover{background:#f5c93d}
     .btn-launch{background:var(--success);color:white;width:100%;padding:12px;border-radius:10px;font-size:16px;font-weight:800;display:none;margin-top:18px}
+    .btn-launch:hover{background:#20a557}
     .status{display:none;margin-top:16px;padding:12px;border-radius:8px;font-weight:700;text-align:center}
     .status.valid{background:#e6fbec;color:#056632;display:block}
     .status.invalid{background:#ffe9e9;color:#7b1f1f;display:block}
@@ -40,9 +43,15 @@
       <div class="panel-left">
         <div class="logo">🌐 Render Proxy</div>
         <div class="hero-title">Fast remote browsing</div>
-        <div class="hero-sub">Optimized for Chromebooks and WebP streaming.</div>
-        <div class="info-box"><small>Server may take a moment to wake. Click Wake if needed.</small></div>
-        <div class="preview" id="previewPane"><div><div style="font-weight:700;margin-bottom:8px">Preview</div><div style="color:#999;font-size:12px">Remote browser opens in a new tab.</div></div></div>
+        <div class="hero-sub">RAM-optimized WebP streaming for Chromebooks.</div>
+        <div class="info-box"><small>💾 Server uses shared browser - sessions stay active for 2 hours!</small></div>
+        <div class="preview" id="previewPane">
+          <div style="text-align:center">
+            <div style="font-weight:700;margin-bottom:8px">✨ Preview</div>
+            <div style="color:#999;font-size:12px">Remote browser opens in a new tab.</div>
+            <div style="color:#999;font-size:12px;margin-top:4px">Auto-refresh keeps you connected.</div>
+          </div>
+        </div>
       </div>
 
       <div class="panel-right">
@@ -58,7 +67,7 @@
             <input id="keyInput" type="text" placeholder="Enter your key" autocomplete="off">
           </div>
           <button class="btn btn-primary" id="loginBtn" onclick="authenticate()">Login</button>
-          <button class="btn btn-wakeup" id="wakeBtn" onclick="wakeUpServer()">☕ Wake</button>
+          <button class="btn btn-wakeup" id="wakeBtn" onclick="wakeUpServer()">☕ Wake Server</button>
           <div class="status" id="status"></div>
         </div>
         <button class="btn-launch" id="launchBtn" onclick="launchProxy()">🚀 Launch Proxy Browser</button>
@@ -82,9 +91,9 @@ async function wakeUpServer(){
   try {
     const r = await fetch(BACKEND_BASE + "/health");
     const j = await r.json();
-    if (j.status === "ok") showStatus("Server awake!", "valid");
+    if (j.status === "ok") showStatus("✓ Server awake! Active sessions: " + j.activeSessions, "valid");
     else showStatus("Server responded but not OK", "invalid");
-  } catch(e){ showStatus("Server unreachable", "invalid"); }
+  } catch(e){ showStatus("Server unreachable - may be waking up", "loading"); }
 }
 
 async function authenticate(){
@@ -97,16 +106,16 @@ async function authenticate(){
     const j = await r.json();
     if (j.valid){
       userName = name;
-      showStatus(`Welcome, ${name}`, "valid");
+      showStatus(`✓ Welcome, ${name}!`, "valid");
       el("loginForm").style.display = "none";
       el("launchBtn").style.display = "block";
-    } else showStatus("Invalid name or key", "invalid");
+    } else showStatus("✗ Invalid name or key", "invalid");
   } catch(e){ showStatus("Connection error", "invalid"); }
 }
 
 function launchProxy(){
   const w = window.open("", "_blank");
-  if (!w){ alert("Enable popups"); return; }
+  if (!w){ alert("Enable popups to launch proxy"); return; }
   const html = createProxyHTML();
   w.document.open();
   w.document.write(html);
@@ -116,69 +125,175 @@ function launchProxy(){
 function createProxyHTML(){
   return `<!DOCTYPE html>
 <html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Remote Browser</title>
+<title>Remote Browser - ${userName}</title>
 <style>
-  body{margin:0;background:#0b0b0b;color:white;font-family:Segoe UI,Tahoma}
+  *{box-sizing:border-box}
+  body{margin:0;background:#0b0b0b;color:white;font-family:Segoe UI,Tahoma;overflow:hidden}
   .toolbar{background:#151515;padding:10px;display:flex;gap:8px;align-items:center;border-bottom:1px solid #222}
-  input{flex:1;padding:8px;border-radius:6px;border:1px solid #333;background:#0d0d0d;color:#fff}
-  button{padding:8px 12px;border-radius:6px;border:none;background:#4a5de6;color:#fff;cursor:pointer}
-  select{padding:8px;border-radius:6px;background:#0d0d0d;border:1px solid #333;color:#fff}
-  .view{height:calc(100vh - 52px);display:flex;background:#000;align-items:center;justify-content:center}
-  .view img{max-width:100%;max-height:100%;object-fit:contain;cursor:pointer}
+  .user-badge{background:#4a5de6;padding:6px 12px;border-radius:6px;font-size:13px;font-weight:600}
+  input{flex:1;padding:8px 12px;border-radius:6px;border:1px solid #333;background:#0d0d0d;color:#fff;font-size:14px}
+  input:focus{outline:none;border-color:#4a5de6}
+  button{padding:8px 12px;border-radius:6px;border:none;background:#4a5de6;color:#fff;cursor:pointer;font-weight:600;transition:background 0.2s}
+  button:hover{background:#3a4dd6}
+  select{padding:8px;border-radius:6px;background:#0d0d0d;border:1px solid #333;color:#fff;font-size:13px}
+  .view{height:calc(100vh - 52px);display:flex;background:#000;align-items:center;justify-content:center;position:relative}
+  .view img{max-width:100%;max-height:100%;object-fit:contain;cursor:pointer;display:block}
+  .loading{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(0,0,0,0.8);padding:20px;border-radius:8px;color:#fff}
+  .status-bar{position:absolute;bottom:10px;left:10px;background:rgba(0,0,0,0.7);padding:6px 12px;border-radius:6px;font-size:12px;color:#aaa}
 </style></head>
 <body>
 <div class="toolbar">
-  <div>👤 ${userName}</div>
-  <input id="urlInput" placeholder="Enter URL">
+  <div class="user-badge">👤 ${userName}</div>
+  <input id="urlInput" placeholder="Enter URL (e.g., example.com)">
   <button id="goBtn">Go</button>
-  <button id="refreshBtn">🔄</button>
-  <select id="qualitySelect"><option value="low">Low</option><option value="medium" selected>Medium</option><option value="high">High</option></select>
+  <button id="refreshBtn" title="Refresh">🔄</button>
+  <select id="qualitySelect" title="Image Quality">
+    <option value="low">Low</option>
+    <option value="medium" selected>Medium</option>
+    <option value="high">High</option>
+  </select>
 </div>
-<div class="view" id="browserContent"><div style="color:#888">Initializing...</div></div>
+<div class="view" id="browserContent">
+  <div class="loading">⏳ Initializing session...</div>
+</div>
+<div class="status-bar" id="statusBar">Ready</div>
 <script>
 const BASE = "${BACKEND_BASE}";
 let sessionId = null;
 let quality = "medium";
+let heartbeatInterval = null;
+let isLoading = false;
 
 async function createSession(){
-  const r = await fetch(BASE+"/session/create",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({userName:"${userName}",userKey:"unknown"})});
-  const j = await r.json();
-  sessionId = j.sessionId;
-  updateScreenshot();
+  try {
+    updateStatus("Creating session...");
+    const r = await fetch(BASE+"/session/create",{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({userName:"${userName}",userKey:"hidden"})
+    });
+    const j = await r.json();
+    if(j.success){
+      sessionId = j.sessionId;
+      updateStatus("Session active - Ready to browse");
+      startHeartbeat();
+      document.getElementById("browserContent").innerHTML = '<div class="loading">✅ Connected! Enter a URL to start browsing.</div>';
+    } else {
+      updateStatus("Failed to create session");
+    }
+  } catch(e){
+    updateStatus("Error: " + e.message);
+  }
+}
+
+function startHeartbeat(){
+  if(heartbeatInterval) clearInterval(heartbeatInterval);
+  // Auto-refresh every 30 seconds to keep session alive
+  heartbeatInterval = setInterval(()=>{
+    if(sessionId && !isLoading){
+      updateScreenshot(true); // silent refresh
+    }
+  }, 30000);
 }
 
 async function navigate(){
-  let url=document.getElementById("urlInput").value.trim();
-  if(!/^https?:\/\//i.test(url)) url="https://"+url;
-  await fetch(BASE+"/session/navigate",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sessionId,url})});
-  updateScreenshot();
+  if(!sessionId) return;
+  let url = document.getElementById("urlInput").value.trim();
+  if(!url) return;
+  if(!/^https?:\\/\\//i.test(url)) url = "https://" + url;
+  
+  isLoading = true;
+  updateStatus("Loading " + url + "...");
+  try {
+    const r = await fetch(BASE+"/session/navigate",{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({sessionId,url})
+    });
+    const j = await r.json();
+    if(j.success){
+      updateStatus("Loaded: " + j.title);
+      setTimeout(()=>updateScreenshot(), 500);
+    }
+  } catch(e){
+    updateStatus("Navigation failed");
+  } finally {
+    isLoading = false;
+  }
 }
 
-document.getElementById("goBtn").onclick=navigate;
-document.getElementById("refreshBtn").onclick=updateScreenshot;
-document.getElementById("qualitySelect").onchange=e=>{quality=e.target.value;updateScreenshot();}
-
-async function updateScreenshot(){
-  const r=await fetch(BASE+"/session/screenshot/"+sessionId+"?quality="+quality,{cache:"no-store"});
-  const b=await r.blob();
-  const u=URL.createObjectURL(b);
-  const c=document.getElementById("browserContent");
-  c.innerHTML='<img id="img" src="'+u+'">';
-  document.getElementById("img").onclick=handleClick;
+async function updateScreenshot(silent = false){
+  if(!sessionId) return;
+  try {
+    if(!silent) isLoading = true;
+    const r = await fetch(BASE+"/session/screenshot/"+sessionId+"?quality="+quality,{cache:"no-store"});
+    const blob = await r.blob();
+    const url = URL.createObjectURL(blob);
+    const c = document.getElementById("browserContent");
+    c.innerHTML = '<img id="img" src="'+url+'">';
+    document.getElementById("img").onclick = handleClick;
+    if(!silent) updateStatus("Ready");
+  } catch(e){
+    if(!silent) updateStatus("Screenshot failed");
+  } finally {
+    if(!silent) isLoading = false;
+  }
 }
 
 async function handleClick(e){
-  const rect=e.target.getBoundingClientRect();
-  const x=(e.clientX-rect.left)*(1366/rect.width);
-  const y=(e.clientY-rect.top)*(768/rect.height);
-  await fetch(BASE+"/session/click",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sessionId,x,y})});
-  updateScreenshot();
+  if(!sessionId || isLoading) return;
+  const rect = e.target.getBoundingClientRect();
+  const x = (e.clientX - rect.left) * (1366 / rect.width);
+  const y = (e.clientY - rect.top) * (768 / rect.height);
+  
+  isLoading = true;
+  updateStatus("Processing click...");
+  try {
+    await fetch(BASE+"/session/click",{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({sessionId, x, y})
+    });
+    setTimeout(()=>updateScreenshot(), 300);
+  } catch(e){
+    updateStatus("Click failed");
+    isLoading = false;
+  }
 }
 
+function updateStatus(msg){
+  document.getElementById("statusBar").textContent = msg;
+}
+
+document.getElementById("goBtn").onclick = navigate;
+document.getElementById("refreshBtn").onclick = ()=>updateScreenshot();
+document.getElementById("qualitySelect").onchange = e=>{
+  quality = e.target.value;
+  updateScreenshot();
+};
+document.getElementById("urlInput").onkeypress = e=>{
+  if(e.key === "Enter") navigate();
+};
+
+window.onbeforeunload = ()=>{
+  if(heartbeatInterval) clearInterval(heartbeatInterval);
+  if(sessionId){
+    fetch(BASE+"/session/close",{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({sessionId})
+    });
+  }
+};
+
 createSession();
-<\/script>
+<\\/script>
 </body></html>`;
 }
+
+// Enter key handlers
+el("nameInput").onkeypress = e=>{ if(e.key==="Enter") el("keyInput").focus(); };
+el("keyInput").onkeypress = e=>{ if(e.key==="Enter") authenticate(); };
 </script>
 </body>
 </html>
