@@ -1,4 +1,6 @@
-// server.js
+// server.js (UPDATED)
+// Replaces the previous server.js. Keeps your routing & logging but returns WebP blobs for screenshots.
+
 import express from "express";
 import cors from "cors";
 import puppeteer from "puppeteer-core";
@@ -8,7 +10,7 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Centralized valid keys with names
+// Centralized valid keys with names (kept from original)
 let VALID_KEYS = {
   "8392017": "Alice",
   "4928371": "Bob",
@@ -21,8 +23,11 @@ const sessions = new Map();
 // Store navigation logs for ToS enforcement
 const navigationLogs = [];
 
-// Session cleanup after 15 minutes of inactivity
+// Session cleanup after 15 minutes of inactivity (kept)
 const SESSION_TIMEOUT = 15 * 60 * 1000;
+
+// Recommended viewport for 720p Chromebooks
+const VIEWPORT = { width: 1366, height: 768, deviceScaleFactor: 1 };
 
 // Root endpoint
 app.get("/", (req, res) => {
@@ -51,7 +56,7 @@ app.get("/health", (req, res) => {
   });
 });
 
-// Key validation
+// Key validation (kept behavior)
 app.get("/validate", (req, res) => {
   const key = req.query.key;
   const name = req.query.name;
@@ -67,14 +72,15 @@ app.post("/session/create", async (req, res) => {
   try {
     const browser = await puppeteer.launch({
       args: chromium.args,
-      defaultViewport: { width: 1280, height: 800 },
+      defaultViewport: VIEWPORT,
       executablePath: await chromium.executablePath(),
       headless: chromium.headless
     });
     
     const page = await browser.newPage();
+    await page.setViewport(VIEWPORT);
     
-    // Set a reasonable user agent
+    // Set a reasonable user agent (kept)
     await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
     
     const session = {
@@ -121,10 +127,13 @@ app.post("/session/navigate", async (req, res) => {
   }
   
   try {
-    await session.page.goto(url, { 
+    let safeUrl = url;
+    if (!/^https?:\/\//i.test(safeUrl)) safeUrl = "https://" + safeUrl;
+
+    await session.page.goto(safeUrl, { 
       waitUntil: 'networkidle2',
       timeout: 30000 
-    });
+    }).catch(() => { /* ignore navigation timeouts for some sites */ });
     
     session.lastActivity = Date.now();
     resetSessionTimeout(sessionId);
@@ -169,7 +178,7 @@ app.post("/session/click", async (req, res) => {
   try {
     await session.page.mouse.click(x, y);
     
-    // Shorter wait for faster response (was 500ms)
+    // Shorter wait for faster response
     await new Promise(resolve => setTimeout(resolve, 100));
     
     session.lastActivity = Date.now();
@@ -216,7 +225,7 @@ app.post("/session/type", async (req, res) => {
   }
 });
 
-// Get screenshot
+// Screenshot: returns binary WebP image (no base64 JSON)
 app.get("/session/screenshot/:sessionId", async (req, res) => {
   const { sessionId } = req.params;
   const quality = req.query.quality || 'medium'; // low, medium, high
@@ -227,33 +236,33 @@ app.get("/session/screenshot/:sessionId", async (req, res) => {
   }
   
   try {
-    // Quality settings for speed vs quality tradeoff
+    // WebP quality mapping
     const qualitySettings = {
-      low: { type: 'jpeg', quality: 40 },
-      medium: { type: 'jpeg', quality: 70 },
-      high: { type: 'jpeg', quality: 90 }
+      low: { type: 'webp', quality: 45 },
+      medium: { type: 'webp', quality: 60 },
+      high: { type: 'webp', quality: 80 }
     };
     
     const settings = qualitySettings[quality] || qualitySettings.medium;
-    
-    const screenshot = await session.page.screenshot({ 
-      encoding: 'base64',
-      fullPage: false,
-      ...settings
+
+    // Small wait to allow network activity to settle
+    try {
+      await session.page.waitForNetworkIdle({ idleTime: 150, timeout: 1200 });
+    } catch (e) { /* ignore timeouts */ }
+
+    // Take webp screenshot (binary Buffer)
+    const buffer = await session.page.screenshot({
+      type: settings.type,
+      quality: settings.quality,
+      fullPage: false
     });
-    
+
     session.lastActivity = Date.now();
     resetSessionTimeout(sessionId);
-    
-    const title = await session.page.title();
-    const currentUrl = session.page.url();
-    
-    res.json({ 
-      success: true,
-      screenshot: `data:image/jpeg;base64,${screenshot}`,
-      title,
-      url: currentUrl
-    });
+
+    res.set("Content-Type", "image/webp");
+    res.set("Cache-Control", "no-store, max-age=0");
+    res.send(buffer);
   } catch (error) {
     console.error('Screenshot error:', error);
     res.status(500).json({ error: 'Screenshot failed', message: error.message });
@@ -270,32 +279,21 @@ app.post("/session/close", async (req, res) => {
 
 // Get navigation logs (for ToS enforcement)
 app.get("/admin/logs", (req, res) => {
-  // Optional: Add admin authentication here
   const adminKey = req.query.adminKey;
-  
-  // Simple admin key check (you can change this)
   if (adminKey !== 'admin_secure_key_123') {
     return res.status(401).json({ error: 'Unauthorized' });
   }
-  
-  res.json({ 
-    success: true, 
-    logs: navigationLogs,
-    totalLogs: navigationLogs.length
-  });
+  res.json({ success: true, logs: navigationLogs, totalLogs: navigationLogs.length });
 });
 
 // Clear logs (admin only)
 app.post("/admin/clear-logs", (req, res) => {
   const { adminKey } = req.body;
-  
   if (adminKey !== 'admin_secure_key_123') {
     return res.status(401).json({ error: 'Unauthorized' });
   }
-  
   const clearedCount = navigationLogs.length;
   navigationLogs.length = 0;
-  
   console.log(`🗑️ Cleared ${clearedCount} log entries`);
   res.json({ success: true, clearedCount });
 });
