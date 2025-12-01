@@ -1,5 +1,5 @@
-// server.js (UPDATED)
-// Replaces the previous server.js. Keeps your routing & logging but returns WebP blobs for screenshots.
+// server.js - RAM OPTIMIZED
+// Uses a SINGLE shared browser with multiple tabs instead of one browser per session
 
 import express from "express";
 import cors from "cors";
@@ -10,30 +10,65 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Centralized valid keys with names (kept from original)
+// Centralized valid keys with names
 let VALID_KEYS = {
   "8392017": "Alice",
   "4928371": "Bob",
   "1029384": "Charlie"
 };
 
-// Store active browser sessions
+// SINGLE shared browser instance (saves RAM!)
+let sharedBrowser = null;
+
+// Store active sessions (now just pages, not full browsers)
 const sessions = new Map();
 
 // Store navigation logs for ToS enforcement
 const navigationLogs = [];
 
-// Session cleanup after 15 minutes of inactivity (kept)
-const SESSION_TIMEOUT = 15 * 60 * 1000;
+// Session cleanup after 2 hours of inactivity (was 15 minutes)
+const SESSION_TIMEOUT = 2 * 60 * 60 * 1000; // 2 hours
 
 // Recommended viewport for 720p Chromebooks
 const VIEWPORT = { width: 1366, height: 768, deviceScaleFactor: 1 };
+
+// Initialize shared browser on startup
+async function initBrowser() {
+  if (!sharedBrowser) {
+    console.log('🚀 Launching shared browser instance...');
+    try {
+      sharedBrowser = await puppeteer.launch({
+        args: [
+          ...chromium.args,
+          '--disable-dev-shm-usage',
+          '--disable-gpu',
+          '--no-sandbox',
+          '--disable-setuid-sandbox',
+          '--disable-accelerated-2d-canvas',
+          '--disable-software-rasterizer',
+          '--single-process' // Important for low RAM
+        ],
+        defaultViewport: VIEWPORT,
+        executablePath: await chromium.executablePath(),
+        headless: chromium.headless,
+        timeout: 60000 // 60 second timeout for launch
+      });
+      console.log('✅ Shared browser ready');
+    } catch (error) {
+      console.error('❌ Browser launch failed:', error);
+      sharedBrowser = null;
+      throw error;
+    }
+  }
+  return sharedBrowser;
+}
 
 // Root endpoint
 app.get("/", (req, res) => {
   res.json({ 
     status: "online",
-    service: "Puppeteer Proxy Server - Remote Browser",
+    service: "Puppeteer Proxy Server - RAM Optimized",
+    activeSessions: sessions.size,
     endpoints: {
       health: "/health",
       validate: "/validate?key=YOUR_KEY&name=YOUR_NAME",
@@ -52,11 +87,12 @@ app.get("/health", (req, res) => {
   res.json({ 
     status: "ok", 
     service: "puppeteer-proxy",
-    activeSessions: sessions.size 
+    activeSessions: sessions.size,
+    browserActive: sharedBrowser !== null
   });
 });
 
-// Key validation (kept behavior)
+// Key validation
 app.get("/validate", (req, res) => {
   const key = req.query.key;
   const name = req.query.name;
@@ -64,27 +100,29 @@ app.get("/validate", (req, res) => {
   res.json({ valid, expectedName: VALID_KEYS[key] });
 });
 
-// Create new browser session
+// Create new session (just a new tab in shared browser)
 app.post("/session/create", async (req, res) => {
   const sessionId = generateSessionId();
   const { userName, userKey } = req.body;
   
+  console.log(`📥 Session creation request from: ${userName}`);
+  
   try {
-    const browser = await puppeteer.launch({
-      args: chromium.args,
-      defaultViewport: VIEWPORT,
-      executablePath: await chromium.executablePath(),
-      headless: chromium.headless
-    });
+    // Ensure shared browser is running
+    console.log('🔍 Checking browser status...');
+    const browser = await initBrowser();
+    console.log('✅ Browser available, creating new page...');
     
+    // Create new tab (page) instead of new browser
     const page = await browser.newPage();
     await page.setViewport(VIEWPORT);
     
-    // Set a reasonable user agent (kept)
+    console.log('✅ Page created, setting user agent...');
+    
+    // Set user agent
     await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
     
     const session = {
-      browser,
       page,
       lastActivity: Date.now(),
       timeout: null,
@@ -109,10 +147,10 @@ app.post("/session/create", async (req, res) => {
     navigationLogs.push(logEntry);
     console.log('📝 LOG:', JSON.stringify(logEntry));
     
-    console.log(`Session created: ${sessionId}`);
+    console.log(`✅ Session created: ${sessionId} (Total: ${sessions.size})`);
     res.json({ success: true, sessionId });
   } catch (error) {
-    console.error('Error creating session:', error);
+    console.error('❌ Error creating session:', error);
     res.status(500).json({ error: 'Failed to create session', message: error.message });
   }
 });
@@ -131,9 +169,9 @@ app.post("/session/navigate", async (req, res) => {
     if (!/^https?:\/\//i.test(safeUrl)) safeUrl = "https://" + safeUrl;
 
     await session.page.goto(safeUrl, { 
-      waitUntil: 'networkidle2',
+      waitUntil: 'domcontentloaded', // Faster than networkidle2
       timeout: 30000 
-    }).catch(() => { /* ignore navigation timeouts for some sites */ });
+    }).catch(() => { /* ignore navigation timeouts */ });
     
     session.lastActivity = Date.now();
     resetSessionTimeout(sessionId);
@@ -177,8 +215,6 @@ app.post("/session/click", async (req, res) => {
   
   try {
     await session.page.mouse.click(x, y);
-    
-    // Shorter wait for faster response
     await new Promise(resolve => setTimeout(resolve, 100));
     
     session.lastActivity = Date.now();
@@ -225,10 +261,10 @@ app.post("/session/type", async (req, res) => {
   }
 });
 
-// Screenshot: returns binary WebP image (no base64 JSON)
+// Screenshot: returns binary WebP image
 app.get("/session/screenshot/:sessionId", async (req, res) => {
   const { sessionId } = req.params;
-  const quality = req.query.quality || 'medium'; // low, medium, high
+  const quality = req.query.quality || 'medium';
   
   const session = sessions.get(sessionId);
   if (!session) {
@@ -238,23 +274,19 @@ app.get("/session/screenshot/:sessionId", async (req, res) => {
   try {
     // WebP quality mapping
     const qualitySettings = {
-      low: { type: 'webp', quality: 45 },
-      medium: { type: 'webp', quality: 60 },
-      high: { type: 'webp', quality: 80 }
+      low: { type: 'webp', quality: 40 },
+      medium: { type: 'webp', quality: 55 },
+      high: { type: 'webp', quality: 75 }
     };
     
     const settings = qualitySettings[quality] || qualitySettings.medium;
-
-    // Small wait to allow network activity to settle
-    try {
-      await session.page.waitForNetworkIdle({ idleTime: 150, timeout: 1200 });
-    } catch (e) { /* ignore timeouts */ }
 
     // Take webp screenshot (binary Buffer)
     const buffer = await session.page.screenshot({
       type: settings.type,
       quality: settings.quality,
-      fullPage: false
+      fullPage: false,
+      optimizeForSpeed: true
     });
 
     session.lastActivity = Date.now();
@@ -269,15 +301,14 @@ app.get("/session/screenshot/:sessionId", async (req, res) => {
   }
 });
 
-// Close session
+// Close session (just close the tab, not the browser)
 app.post("/session/close", async (req, res) => {
   const { sessionId } = req.body;
-  
   await closeSession(sessionId);
   res.json({ success: true });
 });
 
-// Get navigation logs (for ToS enforcement)
+// Get navigation logs
 app.get("/admin/logs", (req, res) => {
   const adminKey = req.query.adminKey;
   if (adminKey !== 'admin_secure_key_123') {
@@ -286,7 +317,7 @@ app.get("/admin/logs", (req, res) => {
   res.json({ success: true, logs: navigationLogs, totalLogs: navigationLogs.length });
 });
 
-// Clear logs (admin only)
+// Clear logs
 app.post("/admin/clear-logs", (req, res) => {
   const { adminKey } = req.body;
   if (adminKey !== 'admin_secure_key_123') {
@@ -311,8 +342,9 @@ function resetSessionTimeout(sessionId) {
     clearTimeout(session.timeout);
   }
   
+  // Extended timeout - only close after 2 hours of complete inactivity
   session.timeout = setTimeout(() => {
-    console.log(`Session ${sessionId} timed out`);
+    console.log(`⏱️ Session ${sessionId} timed out after 2 hours of inactivity`);
     closeSession(sessionId);
   }, SESSION_TIMEOUT);
 }
@@ -326,17 +358,28 @@ async function closeSession(sessionId) {
   }
   
   try {
-    await session.browser.close();
+    // Just close the page/tab, not the whole browser
+    await session.page.close();
   } catch (error) {
-    console.error('Error closing browser:', error);
+    console.error('Error closing page:', error);
   }
   
   sessions.delete(sessionId);
-  console.log(`Session closed: ${sessionId}`);
+  console.log(`🗑️ Session closed: ${sessionId} (Remaining: ${sessions.size})`);
 }
+
+// Graceful shutdown
+process.on('SIGTERM', async () => {
+  console.log('🛑 SIGTERM received, closing browser...');
+  if (sharedBrowser) {
+    await sharedBrowser.close();
+  }
+  process.exit(0);
+});
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`Puppeteer proxy running on port ${PORT}`);
-  console.log(`Chromium path: ${process.env.PUPPETEER_EXECUTABLE_PATH || 'default'}`);
+  console.log(`🚀 Puppeteer proxy running on port ${PORT}`);
+  console.log(`💾 RAM-optimized mode: Single browser, multiple tabs`);
+  console.log(`📊 Max sessions recommended: 3-5 concurrent`);
 });

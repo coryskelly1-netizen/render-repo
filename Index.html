@@ -167,22 +167,42 @@ let isLoading = false;
 async function createSession(){
   try {
     updateStatus("Creating session...");
+    console.log("Attempting to create session at:", BASE + "/session/create");
+    
+    // Add timeout to catch hanging requests
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 60000); // 60 second timeout
+    
     const r = await fetch(BASE+"/session/create",{
       method:"POST",
       headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({userName:"${userName}",userKey:"hidden"})
+      body:JSON.stringify({userName:"${userName}",userKey:"hidden"}),
+      signal: controller.signal
     });
+    
+    clearTimeout(timeout);
+    console.log("Response status:", r.status);
+    
+    if(!r.ok){
+      throw new Error("Server returned " + r.status);
+    }
+    
     const j = await r.json();
+    console.log("Session response:", j);
+    
     if(j.success){
       sessionId = j.sessionId;
       updateStatus("Session active - Ready to browse");
       startHeartbeat();
       document.getElementById("browserContent").innerHTML = '<div class="loading">✅ Connected! Enter a URL to start browsing.</div>';
     } else {
-      updateStatus("Failed to create session");
+      throw new Error(j.error || "Unknown error");
     }
   } catch(e){
-    updateStatus("Error: " + e.message);
+    console.error("Session creation error:", e);
+    const errorMsg = e.name === 'AbortError' ? 'Request timed out (server may be starting up)' : e.message;
+    updateStatus("Error: " + errorMsg);
+    document.getElementById("browserContent").innerHTML = '<div class="loading" style="color:#ff6b6b">❌ Failed to create session<br><small>' + errorMsg + '</small><br><button onclick="createSession()" style="margin-top:10px;padding:8px 16px;background:#4a5de6;color:#fff;border:none;border-radius:6px;cursor:pointer">Retry</button></div>';
   }
 }
 
