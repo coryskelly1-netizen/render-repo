@@ -148,10 +148,17 @@ app.post("/session/create", async (req, res) => {
   
   try {
     const browser = await launchBrowser();
-    const page = await browser.newPage();
+      const page = await browser.newPage();
 
-    await page.setViewport({ width: 1366, height: 768 });
-    await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
+      // Bring page to front so it reliably receives input events
+      try { await page.bringToFront(); } catch (e) {}
+
+      // Sensible defaults for timeouts to reduce unexpected long waits
+      page.setDefaultNavigationTimeout(30000);
+      page.setDefaultTimeout(10000);
+
+      await page.setViewport({ width: 1366, height: 768 });
+      await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
 
     const sessionId = makeId();
     sessions.set(sessionId, { 
@@ -193,9 +200,12 @@ app.post("/session/navigate", async (req, res) => {
     let safeUrl = url;
     if (!/^https?:\/\//i.test(safeUrl)) safeUrl = "https://" + safeUrl;
 
-    await session.page.goto(safeUrl, { 
-      waitUntil: "domcontentloaded", 
-      timeout: 30000 
+    // Activate the tab before navigating to reduce input/visibility delays
+    try { await session.page.bringToFront(); } catch (e) {}
+
+    await session.page.goto(safeUrl, {
+      waitUntil: "domcontentloaded",
+      timeout: 30000
     }).catch(() => {}); // Ignore navigation timeouts
 
     const title = await session.page.title();
@@ -261,6 +271,9 @@ app.post("/session/click", async (req, res) => {
   if (!session) return res.json({ success: false });
 
   try {
+    // Bring the page to the front so the click is processed reliably
+    try { await session.page.bringToFront(); } catch (e) {}
+
     await session.page.mouse.click(x, y);
     await new Promise(resolve => setTimeout(resolve, 100));
     
@@ -336,11 +349,31 @@ app.post("/session/type", async (req, res) => {
   if (!session) return res.json({ success: false });
 
   try {
+    // Ensure the page is active so keyboard events are delivered
+    try { await session.page.bringToFront(); } catch (e) {}
+
     if (selector) {
       await session.page.waitForSelector(selector, { timeout: 5000 });
-      await session.page.type(selector, text);
+      // Focus the element before typing to ensure input is received
+      try { await session.page.focus(selector); } catch (e) {
+        // If focus fails, try clicking the element
+        try { await session.page.click(selector, { clickCount: 1 }); } catch (e) {}
+      }
+      await session.page.keyboard.type(text, { delay: 5 });
     } else {
-      await session.page.keyboard.type(text);
+      // Try to focus an input, textarea, contenteditable, or the document body
+      await session.page.evaluate(() => {
+        const active = document.activeElement;
+        if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.isContentEditable)) {
+          active.focus();
+          return;
+        }
+        const el = document.querySelector('input, textarea, [contenteditable]');
+        if (el) { el.focus(); return; }
+        document.body && document.body.focus();
+      }).catch(() => {});
+
+      await session.page.keyboard.type(text, { delay: 5 });
     }
     session.lastActive = Date.now();
     res.json({ success: true });
