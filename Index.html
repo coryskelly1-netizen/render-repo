@@ -14,9 +14,9 @@
     .panel-left{padding:36px;background:linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,.02)); color:white}
     .logo{font-size:22px;font-weight:700;color:#fff;display:flex;gap:10px;align-items:center}
     .hero-title{font-size:28px;margin-top:18px;color:#fff;font-weight:700}
-    .hero-sub{color:rgba(255,255,255,0.7);margin-top:8px;font-size:14px}
+    .hero-sub{color:var(--muted);margin-top:8px;font-size:14px}
     .info-box{background:rgba(255,255,255,0.05);border-left:4px solid rgba(255,255,255,0.12);padding:12px;margin-top:18px;border-radius:8px}
-    .preview{height:100%;background:#0b0b0b;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#999;font-size:14px;overflow:hidden;min-height:200px}
+    .preview{height:100%;background:#0b0b0b;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#999;font-size:14px;overflow:hidden}
     .panel-right{background:var(--card-bg);padding:32px;min-width:320px}
     h1{margin:0;font-size:22px;color:var(--accent);text-align:center}
     .subtitle{font-size:13px;color:#666;text-align:center;margin-top:4px;margin-bottom:16px}
@@ -24,13 +24,10 @@
     label{display:block;font-size:13px;color:#333;margin-bottom:6px;font-weight:600}
     input[type="text"]{width:100%;padding:12px 14px;border-radius:10px;border:1px solid #e6e6e6;font-size:15px}
     input[type="text"]:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 4px rgba(74,93,230,.06)}
-    .btn{padding:12px 14px;border-radius:10px;border:0;font-weight:700;cursor:pointer;transition:background 0.2s}
+    .btn{padding:12px 14px;border-radius:10px;border:0;font-weight:700;cursor:pointer}
     .btn-primary{background:var(--accent);color:white;width:100%;margin-top:8px}
-    .btn-primary:hover{background:#3a4dd6}
     .btn-wakeup{background:#ffd34d;color:#222;width:100%;margin-top:10px}
-    .btn-wakeup:hover{background:#f5c93d}
     .btn-launch{background:var(--success);color:white;width:100%;padding:12px;border-radius:10px;font-size:16px;font-weight:800;display:none;margin-top:18px}
-    .btn-launch:hover{background:#20a557}
     .status{display:none;margin-top:16px;padding:12px;border-radius:8px;font-weight:700;text-align:center}
     .status.valid{background:#e6fbec;color:#056632;display:block}
     .status.invalid{background:#ffe9e9;color:#7b1f1f;display:block}
@@ -43,15 +40,9 @@
       <div class="panel-left">
         <div class="logo">🌐 Render Proxy</div>
         <div class="hero-title">Fast remote browsing</div>
-        <div class="hero-sub">RAM-optimized WebP streaming for Chromebooks.</div>
-        <div class="info-box"><small>💾 Server uses shared browser - sessions stay active for 2 hours!</small></div>
-        <div class="preview" id="previewPane">
-          <div style="text-align:center">
-            <div style="font-weight:700;margin-bottom:8px">✨ Preview</div>
-            <div style="color:#999;font-size:12px">Remote browser opens in a new tab.</div>
-            <div style="color:#999;font-size:12px;margin-top:4px">Auto-refresh keeps you connected.</div>
-          </div>
-        </div>
+        <div class="hero-sub">Optimized for Chromebooks and WebP streaming.</div>
+        <div class="info-box"><small>Server may take a moment to wake. Click Wake if needed.</small></div>
+        <div class="preview" id="previewPane"><div><div style="font-weight:700;margin-bottom:8px">Preview</div><div style="color:#999;font-size:12px">Remote browser opens in a new tab.</div></div></div>
       </div>
 
       <div class="panel-right">
@@ -67,7 +58,7 @@
             <input id="keyInput" type="text" placeholder="Enter your key" autocomplete="off">
           </div>
           <button class="btn btn-primary" id="loginBtn" onclick="authenticate()">Login</button>
-          <button class="btn btn-wakeup" id="wakeBtn" onclick="wakeUpServer()">☕ Wake Server</button>
+          <button class="btn btn-wakeup" id="wakeBtn" onclick="wakeUpServer()">☕ Wake</button>
           <div class="status" id="status"></div>
         </div>
         <button class="btn-launch" id="launchBtn" onclick="launchProxy()">🚀 Launch Proxy Browser</button>
@@ -76,7 +67,7 @@
   </div>
 
 <script>
-const BACKEND_BASE = "https://render-repo-osyl.onrender.com";
+const BACKEND_BASE = "http://localhost:3000";
 let userName = "";
 
 function el(id){ return document.getElementById(id); }
@@ -91,9 +82,9 @@ async function wakeUpServer(){
   try {
     const r = await fetch(BACKEND_BASE + "/health");
     const j = await r.json();
-    if (j.status === "ok") showStatus("✓ Server awake! Active sessions: " + j.activeSessions, "valid");
+    if (j.status === "ok") showStatus("Server awake!", "valid");
     else showStatus("Server responded but not OK", "invalid");
-  } catch(e){ showStatus("Server unreachable - may be waking up", "loading"); }
+  } catch(e){ showStatus("Server unreachable", "invalid"); }
 }
 
 async function authenticate(){
@@ -106,16 +97,16 @@ async function authenticate(){
     const j = await r.json();
     if (j.valid){
       userName = name;
-      showStatus(`✓ Welcome, ${name}!`, "valid");
+      showStatus(`Welcome, ${name}`, "valid");
       el("loginForm").style.display = "none";
       el("launchBtn").style.display = "block";
-    } else showStatus("✗ Invalid name or key", "invalid");
+    } else showStatus("Invalid name or key", "invalid");
   } catch(e){ showStatus("Connection error", "invalid"); }
 }
 
 function launchProxy(){
   const w = window.open("", "_blank");
-  if (!w){ alert("Enable popups to launch proxy"); return; }
+  if (!w){ alert("Enable popups"); return; }
   const html = createProxyHTML();
   w.document.open();
   w.document.write(html);
@@ -124,196 +115,259 @@ function launchProxy(){
 
 function createProxyHTML(){
   return `<!DOCTYPE html>
-<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>Remote Browser - ${userName}</title>
 <style>
+  :root{ --accent:#4a5de6; --bg:#0b0b0b }
   *{box-sizing:border-box}
-  body{margin:0;background:#0b0b0b;color:white;font-family:Segoe UI,Tahoma;overflow:hidden}
-  .toolbar{background:#151515;padding:10px;display:flex;gap:8px;align-items:center;border-bottom:1px solid #222}
-  .user-badge{background:#4a5de6;padding:6px 12px;border-radius:6px;font-size:13px;font-weight:600}
-  input{flex:1;padding:8px 12px;border-radius:6px;border:1px solid #333;background:#0d0d0d;color:#fff;font-size:14px}
-  input:focus{outline:none;border-color:#4a5de6}
-  button{padding:8px 12px;border-radius:6px;border:none;background:#4a5de6;color:#fff;cursor:pointer;font-weight:600;transition:background 0.2s}
-  button:hover{background:#3a4dd6}
-  select{padding:8px;border-radius:6px;background:#0d0d0d;border:1px solid #333;color:#fff;font-size:13px}
-  .view{height:calc(100vh - 52px);display:flex;background:#000;align-items:center;justify-content:center;position:relative}
-  .view img{max-width:100%;max-height:100%;object-fit:contain;cursor:pointer;display:block}
-  .loading{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(0,0,0,0.8);padding:20px;border-radius:8px;color:#fff}
-  .status-bar{position:absolute;bottom:10px;left:10px;background:rgba(0,0,0,0.7);padding:6px 12px;border-radius:6px;font-size:12px;color:#aaa}
-</style></head>
+  html,body{height:100%;margin:0;background:var(--bg);color:#fff;font-family:Segoe UI, Tahoma, sans-serif}
+  .toolbar{display:flex;gap:8px;align-items:center;padding:10px;background:#121212;border-bottom:1px solid #222}
+  .btn{background:#1f1f1f;border:1px solid #2b2b2b;color:#ddd;padding:8px 10px;border-radius:8px;cursor:pointer}
+  .btn.primary{background:var(--accent);border:none;color:#fff}
+  .url-wrap{display:flex;flex:1;align-items:center;gap:8px}
+  .url-input{flex:1;padding:10px 14px;border-radius:999px;border:1px solid #333;background:#0e0e0e;color:#fff;font-size:14px}
+  .icon{width:18px;height:18px;display:inline-block}
+  select{padding:8px;border-radius:8px;background:#0d0d0d;color:#fff;border:1px solid #333}
+  .view{height:calc(100vh - 56px);background:#000;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden}
+  .view img{max-width:100%;max-height:100%;object-fit:contain;cursor:pointer}
+  .status{position:absolute;left:12px;bottom:12px;background:rgba(0,0,0,0.6);padding:6px 10px;border-radius:8px;font-size:13px;color:#ccc}
+</style>
+</head>
 <body>
-<div class="toolbar">
-  <div class="user-badge">👤 ${userName}</div>
-  <input id="urlInput" placeholder="Enter URL (e.g., example.com)">
-  <button id="goBtn">Go</button>
-  <button id="refreshBtn" title="Refresh">🔄</button>
-  <select id="qualitySelect" title="Image Quality">
-    <option value="low">Low</option>
-    <option value="medium" selected>Medium</option>
-    <option value="high">High</option>
-  </select>
-</div>
-<div class="view" id="browserContent">
-  <div class="loading">⏳ Initializing session...</div>
-</div>
-<div class="status-bar" id="statusBar">Ready</div>
+  <div class="toolbar">
+    <button id="backBtn" class="btn" title="Back">◀</button>
+    <button id="forwardBtn" class="btn" title="Forward">▶</button>
+    <div class="url-wrap">
+      <input id="urlInput" class="url-input" placeholder="Enter URL (e.g. example.com)" list="autocomplete">
+    </div>
+    <button id="goBtn" class="btn primary">Go</button>
+    <button id="refreshBtn" class="btn">⟲</button>
+    <select id="qualitySelect">
+      <option value="low">Low</option>
+      <option value="medium" selected>Medium</option>
+      <option value="high">High</option>
+    </select>
+  </div>
+
+  <div class="view" id="browserContent">
+    <div class="status" id="statusBar">Initializing...</div>
+  </div>
+
 <script>
-const BASE = "${BACKEND_BASE}";
-let sessionId = null;
-let quality = "medium";
-let heartbeatInterval = null;
-let isLoading = false;
+  const BASE = "${BACKEND_BASE}";
+  let sessionId = null;
+  let quality = 'medium';
+  let hasNavigated = false;
+  let isLoading = false;
 
-async function createSession(){
-  try {
-    updateStatus("Creating session...");
-    console.log("Attempting to create session at:", BASE + "/session/create");
-    
-    // Add timeout to catch hanging requests
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 60000); // 60 second timeout
-    
-    const r = await fetch(BASE+"/session/create",{
-      method:"POST",
-      headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({userName:"${userName}",userKey:"hidden"}),
-      signal: controller.signal
-    });
-    
-    clearTimeout(timeout);
-    console.log("Response status:", r.status);
-    
-    if(!r.ok){
-      throw new Error("Server returned " + r.status);
+  async function createSession(){
+    updateStatus('Creating session...');
+    try{
+      const controller = new AbortController();
+      const timeout = setTimeout(()=>controller.abort(),60000);
+      const res = await fetch(BASE + '/session/create',{
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ userName: '${userName}', userKey: 'unknown' }), signal: controller.signal
+      });
+      clearTimeout(timeout);
+      if(!res.ok) throw new Error('Create session failed: '+res.status);
+      const j = await res.json();
+      if(j.success && j.sessionId){ sessionId = j.sessionId; updateStatus('Session ready'); }
+      else throw new Error(j.error || 'Unknown');
+    }catch(err){
+      console.error('createSession error',err);
+      updateStatus('Session error: '+(err.name==='AbortError'?'Timed out':'Failed'));
+      document.getElementById('browserContent').innerHTML = '<div style="color:#f66;padding:20px;text-align:center">Failed to create session<br><button id="retryBtn" style="margin-top:12px;padding:8px 12px">Retry</button></div>';
+      const rb = document.getElementById('retryBtn'); if(rb) rb.onclick = ()=>{ document.getElementById('browserContent').innerHTML = '<div class="status">Initializing...</div>'; createSession(); }
     }
-    
-    const j = await r.json();
-    console.log("Session response:", j);
-    
-    if(j.success){
-      sessionId = j.sessionId;
-      updateStatus("Session active - Ready to browse");
-      startHeartbeat();
-      document.getElementById("browserContent").innerHTML = '<div class="loading">✅ Connected! Enter a URL to start browsing.</div>';
-    } else {
-      throw new Error(j.error || "Unknown error");
-    }
-  } catch(e){
-    console.error("Session creation error:", e);
-    const errorMsg = e.name === 'AbortError' ? 'Request timed out (server may be starting up)' : e.message;
-    updateStatus("Error: " + errorMsg);
-    document.getElementById("browserContent").innerHTML = '<div class="loading" style="color:#ff6b6b">❌ Failed to create session<br><small>' + errorMsg + '</small><br><button onclick="createSession()" style="margin-top:10px;padding:8px 16px;background:#4a5de6;color:#fff;border:none;border-radius:6px;cursor:pointer">Retry</button></div>';
   }
+
+  function updateStatus(msg){ const s = document.getElementById('statusBar'); if(s) s.textContent = msg; }
+
+  async function navigate(){
+    if(!sessionId) return;
+    let url = document.getElementById('urlInput').value.trim();
+    if(!url) return;
+    if(!/^https?:\/\//i.test(url)) url = 'https://' + url;
+    isLoading = true; updateStatus('Loading...');
+    try{
+      const r = await fetch(BASE + '/session/navigate', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ sessionId, url }) });
+      const j = await r.json();
+      if(j.success){ hasNavigated = true; updateStatus(j.title || j.url || 'Loaded'); setTimeout(()=>updateScreenshot(),400); }
+      else updateStatus('Navigation failed');
+    }catch(e){ console.error(e); updateStatus('Navigation error'); }
+    finally{ isLoading = false; }
+  }
+
+  async function goBack(){ if(!sessionId) return; try{ const r = await fetch(BASE + '/session/back', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ sessionId }) }); const j = await r.json(); if(j.success) { updateStatus('Went back'); setTimeout(()=>updateScreenshot(),200); } else updateStatus('Back failed'); }catch(e){ updateStatus('Back error'); }}
+  async function goForward(){ if(!sessionId) return; try{ const r = await fetch(BASE + '/session/forward', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ sessionId }) }); const j = await r.json(); if(j.success) { updateStatus('Went forward'); setTimeout(()=>updateScreenshot(),200); } else updateStatus('Forward failed'); }catch(e){ updateStatus('Forward error'); }}
+
+  async function updateScreenshot(){
+    if(!sessionId) return;
+    if(!hasNavigated) return; // avoid screenshot loop
+    try{
+      isLoading = true; updateStatus('Updating image...');
+      const r = await fetch(BASE + '/session/screenshot/' + sessionId + '?quality=' + encodeURIComponent(quality), { cache: 'no-store' });
+      if(!r.ok) { updateStatus('Screenshot error'); return; }
+      const blob = await r.blob();
+      const url = URL.createObjectURL(blob);
+      const c = document.getElementById('browserContent');
+      c.innerHTML = '<img id="simg" src="'+url+'">';
+      const img = document.getElementById('simg');
+      img.onclick = handleClick;
+      // revoke after a bit
+      setTimeout(()=>{ try{ URL.revokeObjectURL(url); }catch{} },20000);
+      updateStatus('Ready');
+    }catch(e){ console.error(e); updateStatus('Screenshot failed'); }finally{ isLoading = false; }
+  }
+
+  async function handleClick(e){ if(!sessionId || isLoading) return; const rect = e.target.getBoundingClientRect(); const x = Math.round((e.clientX - rect.left) * (1366 / rect.width)); const y = Math.round((e.clientY - rect.top) * (768 / rect.height)); updateStatus('Clicking...'); try{ await fetch(BASE + '/session/click', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ sessionId, x, y }) }); setTimeout(()=>updateScreenshot(),250); }catch(e){ updateStatus('Click failed'); } }
+
+  // Scroll handling
+  function initScroll(){ const view = document.getElementById('browserContent'); if(!view) return; view.addEventListener('wheel', async (ev)=>{ ev.preventDefault(); if(!sessionId) return; try{ await fetch(BASE + '/session/scroll', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ sessionId, dx: 0, dy: Math.round(ev.deltaY) }) }); setTimeout(()=>updateScreenshot(),120); }catch(e){ /* ignore */ } }, { passive: false }); }
+
+  // Autocomplete
+  function initAutocomplete(){ const urlInput = document.getElementById('urlInput'); if(!urlInput) return; let store = JSON.parse(localStorage.getItem('proxy_ac')||'[]'); // attach datalist
+    let dl = document.getElementById('autocomplete'); if(!dl){ dl = document.createElement('datalist'); dl.id = 'autocomplete'; document.body.appendChild(dl); }
+    dl.innerHTML = ''; store.forEach(v=>{ const o = document.createElement('option'); o.value = v; dl.appendChild(o); }); urlInput.setAttribute('list','autocomplete');
+    document.getElementById('goBtn').addEventListener('click',()=>{ const u = urlInput.value.trim(); if(u && !store.includes(u)){ store.unshift(u); if(store.length>50) store.pop(); localStorage.setItem('proxy_ac', JSON.stringify(store)); const o = document.createElement('option'); o.value = u; dl.appendChild(o); } }); }
+
+  // Keyboard typing: send characters to backend when not focused on URL
+  function initTyping(){ document.addEventListener('keydown', async (e)=>{ const active = document.activeElement; if(active && active.id === 'urlInput') return; if(!sessionId || !hasNavigated) return; // filter special keys
+    if(e.key.length === 1 || e.key === 'Enter' || e.key === 'Backspace' || e.key === 'Tab'){
+      try{ await fetch(BASE + '/session/type', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ sessionId, text: e.key }) }); if(e.key === 'Enter') setTimeout(()=>updateScreenshot(),120); }catch(err){}
+    }
+  }); }
+
+  // Wire UI
+  document.getElementById('goBtn').addEventListener('click', navigate);
+  document.getElementById('refreshBtn').addEventListener('click', ()=>updateScreenshot());
+  document.getElementById('qualitySelect').addEventListener('change', (e)=>{ quality = e.target.value; updateScreenshot(); });
+  document.getElementById('backBtn').addEventListener('click', ()=>goBack());
+  document.getElementById('forwardBtn').addEventListener('click', ()=>goForward());
+
+  window.addEventListener('beforeunload', ()=>{ if(sessionId){ navigator.sendBeacon(BASE + '/session/close', JSON.stringify({ sessionId })); } });
+
+  // Init
+  createSession().then(()=>{ initScroll(); initAutocomplete(); initTyping(); });
+// === Textarea overlay for full typing ===
+  function initTextOverlay(){
+    const overlay = document.createElement('textarea');
+    overlay.id = 'typingOverlay';
+    overlay.style.position = 'fixed';
+    overlay.style.bottom = '12px';
+    overlay.style.right = '12px';
+    overlay.style.width = '260px';
+    overlay.style.height = '120px';
+    overlay.style.background = 'rgba(0,0,0,0.65)';
+    overlay.style.color = '#fff';
+    overlay.style.border = '1px solid #333';
+    overlay.style.borderRadius = '8px';
+    overlay.style.padding = '8px';
+    overlay.style.fontSize = '14px';
+    overlay.placeholder = 'Type here → auto-sent to remote browser';
+
+    let lastValue = '';
+    overlay.addEventListener('input', async ()=>{
+      const text = overlay.value.replace(lastValue, '');
+      lastValue = overlay.value;
+      if(text.trim().length > 0){
+        await fetch(BASE + '/session/type',{
+          method:'POST',headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({sessionId,text})
+        });
+        setTimeout(()=>updateScreenshot(),150);
+      }
+    });
+
+    document.body.appendChild(overlay);
+  }
+
+  // Re-init after session creation
+  createSession().then(()=>{ initScroll(); initAutocomplete(); initTyping(); initTextOverlay(); });
+</script>
+</body>
+</html>`;
 }
 
-function startHeartbeat(){
-  if(heartbeatInterval) clearInterval(heartbeatInterval);
-  // Auto-refresh every 30 seconds to keep session alive
-  heartbeatInterval = setInterval(()=>{
-    if(sessionId && !isLoading){
-      updateScreenshot(true); // silent refresh
-    }
-  }, 30000);
-}
 
 async function navigate(){
-  if(!sessionId) return;
-  let url = document.getElementById("urlInput").value.trim();
-  if(!url) return;
-  if(!/^https?:\\/\\//i.test(url)) url = "https://" + url;
-  
-  isLoading = true;
-  updateStatus("Loading " + url + "...");
-  try {
-    const r = await fetch(BASE+"/session/navigate",{
-      method:"POST",
-      headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({sessionId,url})
-    });
-    const j = await r.json();
-    if(j.success){
-      updateStatus("Loaded: " + j.title);
-      setTimeout(()=>updateScreenshot(), 500);
-    }
-  } catch(e){
-    updateStatus("Navigation failed");
-  } finally {
-    isLoading = false;
-  }
+  let url=document.getElementById("urlInput").value.trim();
+  if(!/^https?:\/\//i.test(url)) url="https://"+url;
+  hasNavigated = true;
+  await fetch(BASE+"/session/navigate",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sessionId,url})});
+  updateScreenshot();
 }
 
-async function updateScreenshot(silent = false){
-  if(!sessionId) return;
-  try {
-    if(!silent) isLoading = true;
-    const r = await fetch(BASE+"/session/screenshot/"+sessionId+"?quality="+quality,{cache:"no-store"});
-    const blob = await r.blob();
-    const url = URL.createObjectURL(blob);
-    const c = document.getElementById("browserContent");
-    c.innerHTML = '<img id="img" src="'+url+'">';
-    document.getElementById("img").onclick = handleClick;
-    if(!silent) updateStatus("Ready");
-  } catch(e){
-    if(!silent) updateStatus("Screenshot failed");
-  } finally {
-    if(!silent) isLoading = false;
-  }
+document.getElementById("goBtn").onclick=navigate;
+document.getElementById("refreshBtn").onclick=updateScreenshot;
+document.getElementById("qualitySelect").onchange=e=>{quality=e.target.value;updateScreenshot();}
+
+let hasNavigated = false;
+
+async function updateScreenshot(){
+  if (!hasNavigated) return; // Prevent looping before first navigation
+
+  const r=await fetch(BASE+"/session/screenshot/"+sessionId+"?quality="+quality,{cache:"no-store"});
+  const b=await r.blob();
+  const u=URL.createObjectURL(b);
+  const c=document.getElementById("browserContent");
+  c.innerHTML='<img id="img" src="'+u+'">';
+  document.getElementById("img").onclick=handleClick;
 }
 
 async function handleClick(e){
-  if(!sessionId || isLoading) return;
-  const rect = e.target.getBoundingClientRect();
-  const x = (e.clientX - rect.left) * (1366 / rect.width);
-  const y = (e.clientY - rect.top) * (768 / rect.height);
-  
-  isLoading = true;
-  updateStatus("Processing click...");
-  try {
-    await fetch(BASE+"/session/click",{
-      method:"POST",
-      headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({sessionId, x, y})
-    });
-    setTimeout(()=>updateScreenshot(), 300);
-  } catch(e){
-    updateStatus("Click failed");
-    isLoading = false;
-  }
-}
-
-function updateStatus(msg){
-  document.getElementById("statusBar").textContent = msg;
-}
-
-document.getElementById("goBtn").onclick = navigate;
-document.getElementById("refreshBtn").onclick = ()=>updateScreenshot();
-document.getElementById("qualitySelect").onchange = e=>{
-  quality = e.target.value;
+  const rect=e.target.getBoundingClientRect();
+  const x=(e.clientX-rect.left)*(1366/rect.width);
+  const y=(e.clientY-rect.top)*(768/rect.height);
+  await fetch(BASE+"/session/click",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sessionId,x,y})});
   updateScreenshot();
-};
-document.getElementById("urlInput").onkeypress = e=>{
-  if(e.key === "Enter") navigate();
-};
-
-window.onbeforeunload = ()=>{
-  if(heartbeatInterval) clearInterval(heartbeatInterval);
-  if(sessionId){
-    fetch(BASE+"/session/close",{
-      method:"POST",
-      headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({sessionId})
-    });
-  }
-};
+}
 
 createSession();
-<\\/script>
-</body></html>`;
+<\/script>
+<script>
+// --- Autocomplete & Scroll Support Added ---
+function popupEnhancements(){
+  const urlInput = document.getElementById('urlInput');
+  if(urlInput){
+    // Autocomplete list
+    let store = JSON.parse(localStorage.getItem('proxy_ac')||'[]');
+    let dl = document.createElement('datalist');
+    dl.id = 'autocomplete';
+    store.forEach(v=>{let o=document.createElement('option');o.value=v;dl.appendChild(o);});
+    document.body.appendChild(dl);
+    urlInput.setAttribute('list','autocomplete');
+    const go = document.getElementById('goBtn');
+    if(go){go.addEventListener('click',()=>{
+      let u=urlInput.value.trim();
+      if(u && !store.includes(u)){ store.push(u); localStorage.setItem('proxy_ac',JSON.stringify(store)); }
+    });}
+  }
+
+  // Scroll wheel support
+  const view = document.getElementById('browserContent');
+  if(view){
+    view.addEventListener('wheel', async (e)=>{
+      e.preventDefault();
+      try{
+        await fetch(BASE+'/session/scroll',{
+          method:'POST',headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({sessionId,dx:0,dy:e.deltaY})
+        });
+      }catch(err){}
+      updateScreenshot();
+    },{passive:false});
+  }
 }
 
-// Enter key handlers
-el("nameInput").onkeypress = e=>{ if(e.key==="Enter") el("keyInput").focus(); };
-el("keyInput").onkeypress = e=>{ if(e.key==="Enter") authenticate(); };
+document.addEventListener('DOMContentLoaded', popupEnhancements);
+</script>
+</body></html>`;
+}
 </script>
 </body>
 </html>
