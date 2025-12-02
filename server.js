@@ -148,17 +148,42 @@ app.post("/session/create", async (req, res) => {
   
   try {
     const browser = await launchBrowser();
-      const page = await browser.newPage();
+    const page = await browser.newPage();
 
-      // Bring page to front so it reliably receives input events
-      try { await page.bringToFront(); } catch (e) {}
+    // Bring page to front so it reliably receives input events
+    try { await page.bringToFront(); } catch (e) {}
 
-      // Sensible defaults for timeouts to reduce unexpected long waits
-      page.setDefaultNavigationTimeout(30000);
-      page.setDefaultTimeout(10000);
+    // Sensible defaults for timeouts to reduce unexpected long waits
+    page.setDefaultNavigationTimeout(30000);
+    page.setDefaultTimeout(10000);
 
-      await page.setViewport({ width: 1366, height: 768 });
-      await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
+    // Use a smaller viewport to reduce screenshot size / encoding time
+    // Smaller viewport => lower bandwidth and faster operations
+    await page.setViewport({ width: 1024, height: 600 });
+    await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
+
+    // Disable animations/transitions early for faster rendering
+    try {
+      await page.evaluateOnNewDocument(() => {
+        const css = `*{transition:none!important;animation:none!important}`;
+        const s = document.createElement('style');
+        s.type = 'text/css';
+        s.appendChild(document.createTextNode(css));
+        (document.head || document.documentElement).appendChild(s);
+      });
+    } catch (e) {}
+
+    // Block heavy resource types (images, fonts, styles, media) to speed page loads
+    try {
+      await page.setRequestInterception(true);
+      page.on('request', req => {
+        const t = req.resourceType();
+        if (['image', 'stylesheet', 'font', 'media'].includes(t)) {
+          return req.abort();
+        }
+        return req.continue();
+      });
+    } catch (e) {}
 
     const sessionId = makeId();
     sessions.set(sessionId, { 
@@ -245,15 +270,15 @@ app.get("/session/screenshot/:id", async (req, res) => {
   const q = qualityMap[quality] || 60;
 
   try {
+    // JPEG is often faster to encode on some platforms; use smaller viewport and lower quality to reduce latency
     const buf = await session.page.screenshot({
-      type: "webp",
+      type: "jpeg",
       quality: q,
-      captureBeyondViewport: false,
-      optimizeForSpeed: true
+      captureBeyondViewport: false
     });
 
     session.lastActive = Date.now();
-    res.set("Content-Type", "image/webp");
+    res.set("Content-Type", "image/jpeg");
     res.set("Cache-Control", "no-store, max-age=0");
     res.send(buf);
   } catch (err) {

@@ -205,7 +205,7 @@ function createProxyHTML(){
 '      if(sessionId && !isLoading && hasNavigated){' +
 '        updateScreenshot(true);' +
 '      }' +
-'    }, 30000);' +
+'    }, 15000);' +
 '  }' +
 '  function updateStatus(msg){ ' +
 '    const s = document.getElementById("statusBar"); ' +
@@ -228,7 +228,7 @@ function createProxyHTML(){
 '      if(j.success){ ' +
 '        hasNavigated = true; ' +
 '        updateStatus(j.title || j.url || "Loaded"); ' +
-'        setTimeout(()=>updateScreenshot(),400); ' +
+'        setTimeout(()=>updateScreenshot(),200); ' +
 '      } else updateStatus("Navigation failed");' +
 '    }catch(e){ ' +
 '      console.error(e); ' +
@@ -264,8 +264,8 @@ function createProxyHTML(){
 '  async function handleClick(e){ ' +
 '    if(!sessionId || isLoading) return; ' +
 '    const rect = e.target.getBoundingClientRect(); ' +
-'    const x = Math.round((e.clientX - rect.left) * (1366 / rect.width)); ' +
-'    const y = Math.round((e.clientY - rect.top) * (768 / rect.height)); ' +
+'    const x = Math.round((e.clientX - rect.left) * (1024 / rect.width)); ' +
+'    const y = Math.round((e.clientY - rect.top) * (600 / rect.height)); ' +
 '    updateStatus("Clicking..."); ' +
 '    try{ ' +
 '      await fetch(BASE + "/session/click", { ' +
@@ -273,7 +273,7 @@ function createProxyHTML(){
 '        headers:{"Content-Type":"application/json"}, ' +
 '        body: JSON.stringify({ sessionId, x, y }) ' +
 '      }); ' +
-'      setTimeout(()=>updateScreenshot(),250); ' +
+'      setTimeout(()=>updateScreenshot(),150); ' +
 '    }catch(e){ ' +
 '      updateStatus("Click failed"); ' +
 '    } ' +
