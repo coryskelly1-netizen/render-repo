@@ -102,11 +102,11 @@ async function authenticate(){
   if (!name || !key){ showStatus("Fill both fields", "invalid"); return; }
   showStatus("Checking...", "loading");
   try{
-    const r = await fetch(\`\${BACKEND_BASE}/validate?name=\${encodeURIComponent(name)}&key=\${encodeURIComponent(key)}\`);
+    const r = await fetch(BACKEND_BASE + "/validate?name=" + encodeURIComponent(name) + "&key=" + encodeURIComponent(key));
     const j = await r.json();
     if (j.valid){
       userName = name;
-      showStatus(\`✓ Welcome, \${name}!\`, "valid");
+      showStatus("✓ Welcome, " + name + "!", "valid");
       el("loginForm").style.display = "none";
       el("launchBtn").style.display = "block";
     } else showStatus("✗ Invalid name or key", "invalid");
@@ -123,190 +123,180 @@ function launchProxy(){
 }
 
 function createProxyHTML(){
-  return \`<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Remote Browser - \${userName}</title>
-<style>
-  :root{ --accent:#4a5de6; --bg:#0b0b0b }
-  *{box-sizing:border-box}
-  html,body{height:100%;margin:0;background:var(--bg);color:#fff;font-family:Segoe UI, Tahoma, sans-serif}
-  .toolbar{display:flex;gap:8px;align-items:center;padding:10px;background:#121212;border-bottom:1px solid #222}
-  .btn{background:#1f1f1f;border:1px solid #2b2b2b;color:#ddd;padding:8px 10px;border-radius:8px;cursor:pointer}
-  .btn.primary{background:var(--accent);border:none;color:#fff}
-  .url-wrap{display:flex;flex:1;align-items:center;gap:8px}
-  .url-input{flex:1;padding:10px 14px;border-radius:999px;border:1px solid #333;background:#0e0e0e;color:#fff;font-size:14px}
-  select{padding:8px;border-radius:8px;background:#0d0d0d;color:#fff;border:1px solid #333}
-  .view{height:calc(100vh - 56px);background:#000;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden}
-  .view img{max-width:100%;max-height:100%;object-fit:contain;cursor:pointer}
-  .status{position:absolute;left:12px;bottom:12px;background:rgba(0,0,0,0.7);padding:8px 12px;border-radius:8px;font-size:13px;color:#ccc}
-</style>
-</head>
-<body>
-  <div class="toolbar">
-    <button id="backBtn" class="btn" title="Back">◀</button>
-    <button id="forwardBtn" class="btn" title="Forward">▶</button>
-    <div class="url-wrap">
-      <input id="urlInput" class="url-input" placeholder="Enter URL (e.g. example.com)">
-    </div>
-    <button id="goBtn" class="btn primary">Go</button>
-    <button id="refreshBtn" class="btn">⟲</button>
-    <select id="qualitySelect">
-      <option value="low">Low</option>
-      <option value="medium" selected>Medium</option>
-      <option value="high">High</option>
-    </select>
-  </div>
-
-  <div class="view" id="browserContent">
-    <div class="status" id="statusBar">Initializing...</div>
-  </div>
-
-<script>
-  const BASE = "\${BACKEND_BASE}";
-  let sessionId = null;
-  let quality = 'medium';
-  let hasNavigated = false;
-  let isLoading = false;
-  let heartbeatInterval = null;
-
-  async function createSession(){
-    updateStatus('Creating session...');
-    try{
-      const controller = new AbortController();
-      const timeout = setTimeout(()=>controller.abort(),60000);
-      const res = await fetch(BASE + '/session/create',{
-        method:'POST', 
-        headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ userName: '\${userName}', userKey: 'hidden' }), 
-        signal: controller.signal
-      });
-      clearTimeout(timeout);
-      if(!res.ok) throw new Error('Create session failed: '+res.status);
-      const j = await res.json();
-      if(j.success && j.sessionId){ 
-        sessionId = j.sessionId; 
-        updateStatus('Session ready - Enter URL to browse'); 
-        startHeartbeat();
-      } else throw new Error(j.error || 'Unknown');
-    }catch(err){
-      console.error('createSession error',err);
-      updateStatus('Session error: '+(err.name==='AbortError'?'Timed out':'Failed'));
-      document.getElementById('browserContent').innerHTML = '<div style="color:#f66;padding:20px;text-align:center">Failed to create session<br><button id="retryBtn" style="margin-top:12px;padding:8px 12px;background:#4a5de6;color:#fff;border:none;border-radius:6px;cursor:pointer">Retry</button></div>';
-      const rb = document.getElementById('retryBtn'); 
-      if(rb) rb.onclick = ()=>{ 
-        document.getElementById('browserContent').innerHTML = '<div class="status">Initializing...</div>'; 
-        createSession(); 
-      }
-    }
-  }
-
-  function startHeartbeat(){
-    if(heartbeatInterval) clearInterval(heartbeatInterval);
-    heartbeatInterval = setInterval(()=>{
-      if(sessionId && !isLoading && hasNavigated){
-        updateScreenshot(true);
-      }
-    }, 30000);
-  }
-
-  function updateStatus(msg){ 
-    const s = document.getElementById('statusBar'); 
-    if(s) s.textContent = msg; 
-  }
-
-  async function navigate(){
-    if(!sessionId) return;
-    let url = document.getElementById('urlInput').value.trim();
-    if(!url) return;
-    if(!/^https?:\\/\\//i.test(url)) url = 'https://' + url;
-    isLoading = true; 
-    updateStatus('Loading...');
-    try{
-      const r = await fetch(BASE + '/session/navigate', { 
-        method:'POST', 
-        headers:{'Content-Type':'application/json'}, 
-        body: JSON.stringify({ sessionId, url }) 
-      });
-      const j = await r.json();
-      if(j.success){ 
-        hasNavigated = true; 
-        updateStatus(j.title || j.url || 'Loaded'); 
-        setTimeout(()=>updateScreenshot(),400); 
-      } else updateStatus('Navigation failed');
-    }catch(e){ 
-      console.error(e); 
-      updateStatus('Navigation error'); 
-    } finally{ 
-      isLoading = false; 
-    }
-  }
-
-  async function updateScreenshot(silent = false){
-    if(!sessionId) return;
-    if(!hasNavigated) return;
-    try{
-      if(!silent) isLoading = true;
-      if(!silent) updateStatus('Updating...');
-      const r = await fetch(BASE + '/session/screenshot/' + sessionId + '?quality=' + encodeURIComponent(quality), { cache: 'no-store' });
-      if(!r.ok) { updateStatus('Screenshot error'); return; }
-      const blob = await r.blob();
-      const url = URL.createObjectURL(blob);
-      const c = document.getElementById('browserContent');
-      c.innerHTML = '<img id="simg" src="'+url+'">';
-      const img = document.getElementById('simg');
-      img.onclick = handleClick;
-      setTimeout(()=>{ try{ URL.revokeObjectURL(url); }catch{} },20000);
-      if(!silent) updateStatus('Ready');
-    }catch(e){ 
-      console.error(e); 
-      if(!silent) updateStatus('Screenshot failed'); 
-    }finally{ 
-      if(!silent) isLoading = false; 
-    }
-  }
-
-  async function handleClick(e){ 
-    if(!sessionId || isLoading) return; 
-    const rect = e.target.getBoundingClientRect(); 
-    const x = Math.round((e.clientX - rect.left) * (1366 / rect.width)); 
-    const y = Math.round((e.clientY - rect.top) * (768 / rect.height)); 
-    updateStatus('Clicking...'); 
-    try{ 
-      await fetch(BASE + '/session/click', { 
-        method:'POST', 
-        headers:{'Content-Type':'application/json'}, 
-        body: JSON.stringify({ sessionId, x, y }) 
-      }); 
-      setTimeout(()=>updateScreenshot(),250); 
-    }catch(e){ 
-      updateStatus('Click failed'); 
-    } 
-  }
-
-  document.getElementById('goBtn').addEventListener('click', navigate);
-  document.getElementById('refreshBtn').addEventListener('click', ()=>updateScreenshot());
-  document.getElementById('qualitySelect').addEventListener('change', (e)=>{ 
-    quality = e.target.value; 
-    updateScreenshot(); 
-  });
-  document.getElementById('urlInput').addEventListener('keypress', (e)=>{
-    if(e.key === 'Enter') navigate();
-  });
-
-  window.addEventListener('beforeunload', ()=>{ 
-    if(heartbeatInterval) clearInterval(heartbeatInterval);
-    if(sessionId){ 
-      navigator.sendBeacon(BASE + '/session/close', JSON.stringify({ sessionId })); 
-    } 
-  });
-
-  createSession();
-</script>
-</body>
-</html>\`;
+  return '<!DOCTYPE html>' +
+'<html lang="en">' +
+'<head>' +
+'<meta charset="utf-8">' +
+'<meta name="viewport" content="width=device-width,initial-scale=1">' +
+'<title>Remote Browser - ' + userName + '</title>' +
+'<style>' +
+'  :root{ --accent:#4a5de6; --bg:#0b0b0b }' +
+'  *{box-sizing:border-box}' +
+'  html,body{height:100%;margin:0;background:var(--bg);color:#fff;font-family:Segoe UI, Tahoma, sans-serif}' +
+'  .toolbar{display:flex;gap:8px;align-items:center;padding:10px;background:#121212;border-bottom:1px solid #222}' +
+'  .btn{background:#1f1f1f;border:1px solid #2b2b2b;color:#ddd;padding:8px 10px;border-radius:8px;cursor:pointer}' +
+'  .btn.primary{background:var(--accent);border:none;color:#fff}' +
+'  .url-wrap{display:flex;flex:1;align-items:center;gap:8px}' +
+'  .url-input{flex:1;padding:10px 14px;border-radius:999px;border:1px solid #333;background:#0e0e0e;color:#fff;font-size:14px}' +
+'  select{padding:8px;border-radius:8px;background:#0d0d0d;color:#fff;border:1px solid #333}' +
+'  .view{height:calc(100vh - 56px);background:#000;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden}' +
+'  .view img{max-width:100%;max-height:100%;object-fit:contain;cursor:pointer}' +
+'  .status{position:absolute;left:12px;bottom:12px;background:rgba(0,0,0,0.7);padding:8px 12px;border-radius:8px;font-size:13px;color:#ccc}' +
+'</style>' +
+'</head>' +
+'<body>' +
+'  <div class="toolbar">' +
+'    <button id="backBtn" class="btn" title="Back">◀</button>' +
+'    <button id="forwardBtn" class="btn" title="Forward">▶</button>' +
+'    <div class="url-wrap">' +
+'      <input id="urlInput" class="url-input" placeholder="Enter URL (e.g. example.com)">' +
+'    </div>' +
+'    <button id="goBtn" class="btn primary">Go</button>' +
+'    <button id="refreshBtn" class="btn">⟲</button>' +
+'    <select id="qualitySelect">' +
+'      <option value="low">Low</option>' +
+'      <option value="medium" selected>Medium</option>' +
+'      <option value="high">High</option>' +
+'    </select>' +
+'  </div>' +
+'  <div class="view" id="browserContent">' +
+'    <div class="status" id="statusBar">Initializing...</div>' +
+'  </div>' +
+'<script>' +
+'  const BASE = "' + BACKEND_BASE + '";' +
+'  let sessionId = null;' +
+'  let quality = "medium";' +
+'  let hasNavigated = false;' +
+'  let isLoading = false;' +
+'  let heartbeatInterval = null;' +
+'  async function createSession(){' +
+'    updateStatus("Creating session...");' +
+'    try{' +
+'      const controller = new AbortController();' +
+'      const timeout = setTimeout(()=>controller.abort(),60000);' +
+'      const res = await fetch(BASE + "/session/create",{' +
+'        method:"POST", ' +
+'        headers:{"Content-Type":"application/json"},' +
+'        body: JSON.stringify({ userName: "' + userName + '", userKey: "hidden" }), ' +
+'        signal: controller.signal' +
+'      });' +
+'      clearTimeout(timeout);' +
+'      if(!res.ok) throw new Error("Create session failed: "+res.status);' +
+'      const j = await res.json();' +
+'      if(j.success && j.sessionId){ ' +
+'        sessionId = j.sessionId; ' +
+'        updateStatus("Session ready - Enter URL to browse"); ' +
+'        startHeartbeat();' +
+'      } else throw new Error(j.error || "Unknown");' +
+'    }catch(err){' +
+'      console.error("createSession error",err);' +
+'      updateStatus("Session error: "+(err.name==="AbortError"?"Timed out":"Failed"));' +
+'      document.getElementById("browserContent").innerHTML = "<div style=\\"color:#f66;padding:20px;text-align:center\\">Failed to create session<br><button id=\\"retryBtn\\" style=\\"margin-top:12px;padding:8px 12px;background:#4a5de6;color:#fff;border:none;border-radius:6px;cursor:pointer\\">Retry</button></div>";' +
+'      const rb = document.getElementById("retryBtn"); ' +
+'      if(rb) rb.onclick = ()=>{ ' +
+'        document.getElementById("browserContent").innerHTML = "<div class=\\"status\\">Initializing...</div>"; ' +
+'        createSession(); ' +
+'      }' +
+'    }' +
+'  }' +
+'  function startHeartbeat(){' +
+'    if(heartbeatInterval) clearInterval(heartbeatInterval);' +
+'    heartbeatInterval = setInterval(()=>{' +
+'      if(sessionId && !isLoading && hasNavigated){' +
+'        updateScreenshot(true);' +
+'      }' +
+'    }, 30000);' +
+'  }' +
+'  function updateStatus(msg){ ' +
+'    const s = document.getElementById("statusBar"); ' +
+'    if(s) s.textContent = msg; ' +
+'  }' +
+'  async function navigate(){' +
+'    if(!sessionId) return;' +
+'    let url = document.getElementById("urlInput").value.trim();' +
+'    if(!url) return;' +
+'    if(!/^https?:\\/\\//i.test(url)) url = "https://" + url;' +
+'    isLoading = true; ' +
+'    updateStatus("Loading...");' +
+'    try{' +
+'      const r = await fetch(BASE + "/session/navigate", { ' +
+'        method:"POST", ' +
+'        headers:{"Content-Type":"application/json"}, ' +
+'        body: JSON.stringify({ sessionId, url }) ' +
+'      });' +
+'      const j = await r.json();' +
+'      if(j.success){ ' +
+'        hasNavigated = true; ' +
+'        updateStatus(j.title || j.url || "Loaded"); ' +
+'        setTimeout(()=>updateScreenshot(),400); ' +
+'      } else updateStatus("Navigation failed");' +
+'    }catch(e){ ' +
+'      console.error(e); ' +
+'      updateStatus("Navigation error"); ' +
+'    } finally{ ' +
+'      isLoading = false; ' +
+'    }' +
+'  }' +
+'  async function updateScreenshot(silent){' +
+'    if(!sessionId) return;' +
+'    if(!hasNavigated) return;' +
+'    silent = silent || false;' +
+'    try{' +
+'      if(!silent) isLoading = true;' +
+'      if(!silent) updateStatus("Updating...");' +
+'      const r = await fetch(BASE + "/session/screenshot/" + sessionId + "?quality=" + encodeURIComponent(quality), { cache: "no-store" });' +
+'      if(!r.ok) { updateStatus("Screenshot error"); return; }' +
+'      const blob = await r.blob();' +
+'      const url = URL.createObjectURL(blob);' +
+'      const c = document.getElementById("browserContent");' +
+'      c.innerHTML = "<img id=\\"simg\\" src=\\""+url+"\\">";' +
+'      const img = document.getElementById("simg");' +
+'      img.onclick = handleClick;' +
+'      setTimeout(()=>{ try{ URL.revokeObjectURL(url); }catch{} },20000);' +
+'      if(!silent) updateStatus("Ready");' +
+'    }catch(e){ ' +
+'      console.error(e); ' +
+'      if(!silent) updateStatus("Screenshot failed"); ' +
+'    }finally{ ' +
+'      if(!silent) isLoading = false; ' +
+'    }' +
+'  }' +
+'  async function handleClick(e){ ' +
+'    if(!sessionId || isLoading) return; ' +
+'    const rect = e.target.getBoundingClientRect(); ' +
+'    const x = Math.round((e.clientX - rect.left) * (1366 / rect.width)); ' +
+'    const y = Math.round((e.clientY - rect.top) * (768 / rect.height)); ' +
+'    updateStatus("Clicking..."); ' +
+'    try{ ' +
+'      await fetch(BASE + "/session/click", { ' +
+'        method:"POST", ' +
+'        headers:{"Content-Type":"application/json"}, ' +
+'        body: JSON.stringify({ sessionId, x, y }) ' +
+'      }); ' +
+'      setTimeout(()=>updateScreenshot(),250); ' +
+'    }catch(e){ ' +
+'      updateStatus("Click failed"); ' +
+'    } ' +
+'  }' +
+'  document.getElementById("goBtn").addEventListener("click", navigate);' +
+'  document.getElementById("refreshBtn").addEventListener("click", ()=>updateScreenshot());' +
+'  document.getElementById("qualitySelect").addEventListener("change", (e)=>{ ' +
+'    quality = e.target.value; ' +
+'    updateScreenshot(); ' +
+'  });' +
+'  document.getElementById("urlInput").addEventListener("keypress", (e)=>{' +
+'    if(e.key === "Enter") navigate();' +
+'  });' +
+'  window.addEventListener("beforeunload", ()=>{ ' +
+'    if(heartbeatInterval) clearInterval(heartbeatInterval);' +
+'    if(sessionId){ ' +
+'      navigator.sendBeacon(BASE + "/session/close", JSON.stringify({ sessionId })); ' +
+'    } ' +
+'  });' +
+'  createSession();' +
+'<\/script>' +
+'</body>' +
+'</html>';
 }
 
 // Enter key handlers
