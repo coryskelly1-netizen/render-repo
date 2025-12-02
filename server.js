@@ -49,6 +49,15 @@ let sessions = new Map(); // sessionId -> { page, lastActive, userName, userKey 
 // Store navigation logs for ToS enforcement
 const navigationLogs = [];
 
+// Hostnames where we allow full resource loading (images, styles, fonts, media)
+// Comma-separated list can be provided via ENV `RESOURCE_WHITELIST`
+const RESOURCE_WHITELIST = (process.env.RESOURCE_WHITELIST && process.env.RESOURCE_WHITELIST.split(',')) || [
+  'coolmathgames.com',
+  'cdn.coolmathgames.com',
+  'akamaized.net',
+  'googleusercontent.com'
+];
+
 // Session timeout: 2 hours of inactivity
 const SESSION_TIMEOUT = 2 * 60 * 60 * 1000;
 
@@ -173,14 +182,31 @@ app.post("/session/create", async (req, res) => {
       });
     } catch (e) {}
 
-    // Block heavy resource types (images, fonts, styles, media) to speed page loads
+    // Block heavy resource types (images, fonts, styles, media) by default to speed page loads
+    // Allow these resources for whitelisted hosts (so sites like coolmathgames can load correctly)
     try {
       await page.setRequestInterception(true);
       page.on('request', req => {
         const t = req.resourceType();
+        // default: allow everything
+        let shouldAbort = false;
         if (['image', 'stylesheet', 'font', 'media'].includes(t)) {
-          return req.abort();
+          try {
+            const url = req.url();
+            if (url && typeof url === 'string' && (url.startsWith('http://') || url.startsWith('https://'))) {
+              const host = new URL(url).hostname;
+              const whitelisted = RESOURCE_WHITELIST.some(h => host === h || host.endsWith('.' + h));
+              if (!whitelisted) shouldAbort = true;
+            } else {
+              // non-http(s) (data:, about:, etc.) - abort to be safe
+              shouldAbort = true;
+            }
+          } catch (e) {
+            shouldAbort = true;
+          }
         }
+
+        if (shouldAbort) return req.abort();
         return req.continue();
       });
     } catch (e) {}
@@ -270,15 +296,16 @@ app.get("/session/screenshot/:id", async (req, res) => {
   const q = qualityMap[quality] || 60;
 
   try {
-    // JPEG is often faster to encode on some platforms; use smaller viewport and lower quality to reduce latency
+    // WebP offers better compression than JPEG for smaller file sizes and faster transfer
     const buf = await session.page.screenshot({
-      type: "jpeg",
+      type: "webp",
       quality: q,
-      captureBeyondViewport: false
+      captureBeyondViewport: false,
+      optimizeForSpeed: true
     });
 
     session.lastActive = Date.now();
-    res.set("Content-Type", "image/jpeg");
+    res.set("Content-Type", "image/webp");
     res.set("Cache-Control", "no-store, max-age=0");
     res.send(buf);
   } catch (err) {
