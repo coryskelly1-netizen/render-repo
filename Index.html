@@ -4,6 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Render Proxy — Login</title>
+
   <style>
     :root{ --accent:#4a5de6; --bg1:linear-gradient(135deg,#5568e6,#6b3fa0); --card-bg:#fff; --muted:#7a7a7a; --success:#28c36b }
     *{box-sizing:border-box}
@@ -14,10 +15,11 @@
     .panel-left{padding:36px;background:rgba(255,255,255,.05);color:#fff}
     .logo{font-size:22px;font-weight:700}
     .hero-title{font-size:28px;margin-top:18px;font-weight:700}
-    .hero-sub{color:var(--muted);margin-top:8px;font-size:14px}
-    .info-box{background:rgba(255,255,255,0.05);border-left:4px solid rgba(255,255,255,0.12);padding:12px;margin-top:18px;border-radius:8px}
-    .preview{height:100%;background:#0b0b0b;border-radius:8px;margin-top:20px;display:flex;align-items:center;justify-content:center;color:#999;font-size:14px}
-    .panel-right{background:#fff;padding:32px}
+    .hero-sub{color:#ccc;margin-top:8px;font-size:14px}
+    .info-box{background:rgba(255,255,255,0.1);padding:12px;border-radius:8px;margin-top:18px}
+    .preview{height:200px;background:#0b0b0b;border-radius:8px;margin-top:20px;display:flex;align-items:center;justify-content:center;color:#999;font-size:14px}
+
+    .panel-right{background:white;padding:32px}
     h1{text-align:center;color:var(--accent);margin:0;font-size:22px}
     .subtitle{text-align:center;color:#666;margin:4px 0 16px}
     .form-group{margin-bottom:14px}
@@ -34,113 +36,193 @@
     .status.loading{background:#fff7e6;color:#7a5a00;display:block}
   </style>
 </head>
+
 <body>
 <div class="wrap">
   <div class="card">
+
     <div class="panel-left">
       <div class="logo">🌐 Render Proxy</div>
       <div class="hero-title">Fast Remote Browsing</div>
-      <div class="hero-sub">Optimized for Chromebooks with WebP streaming.</div>
+      <div class="hero-sub">Optimized for Chromebooks (WebP streaming)</div>
       <div class="info-box"><small>Server may take a moment to wake.</small></div>
       <div class="preview">Remote browser opens in a popup.</div>
     </div>
 
     <div class="panel-right">
       <h1>Proxy Login</h1>
-      <div class="subtitle">Enter your name and key</div>
+      <div class="subtitle">Enter your credentials</div>
+
       <div id="loginForm">
         <div class="form-group"><label>Name</label><input id="nameInput" type="text"></div>
         <div class="form-group"><label>Access Key</label><input id="keyInput" type="text"></div>
+
         <button class="btn btn-primary" id="loginBtn">Login</button>
         <button class="btn btn-wake" id="wakeBtn">☕ Wake</button>
+
         <div class="status" id="status"></div>
       </div>
-      <button class="btn btn-launch" id="launchBtn">🚀 Launch Proxy</button>
+
+      <button class="btn btn-launch" id="launchBtn">🚀 Launch Proxy Browser</button>
     </div>
+
   </div>
 </div>
 
-<script>
-const BACKEND_BASE = "https://render-repo-osyl.onrender.com";
-let userName="";
 
-function status(msg,type){const s=document.getElementById("status");s.textContent=msg;s.className="status "+type;}
-
-document.getElementById("wakeBtn").onclick=async()=>{
-  status("Pinging server...","loading");
-  try{const r=await fetch(BACKEND_BASE+"/health");const j=await r.json();status(j.status==="ok"?"Server awake!":"Not OK","valid");}
-  catch{status("Unreachable","invalid");}
-};
-
-document.getElementById("loginBtn").onclick=async()=>{
-  const n=nameInput.value.trim(); const k=keyInput.value.trim();
-  if(!n||!k) return status("Fill both fields","invalid");
-  status("Checking...","loading");
-  try{
-    const r=await fetch(`${BACKEND_BASE}/validate?name=${encodeURIComponent(n)}&key=${encodeURIComponent(k)}`);
-    const j=await r.json();
-    if(j.valid){ userName=n; status(`Welcome ${n}`,"valid"); loginForm.style.display="none"; launchBtn.style.display="block"; }
-    else status("Invalid","invalid");
-  }catch{ status("Connection error","invalid"); }
-};
-
-document.getElementById("launchBtn").onclick=()=>{
-  const w=window.open("","_blank");
-  if(!w){alert("Enable popups");return;}
-  w.document.write(popupHTML()); w.document.close();
-};
-
-// ------------------- POPUP WINDOW -------------------
-function popupHTML(){return `<!DOCTYPE html>
-<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<!-- ===========================
+     POPUP TEMPLATE (SAFE)
+============================= -->
+<script type="text/template" id="popup-template">
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
 <title>Remote Browser</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+
 <style>
-  body{margin:0;background:#0b0b0b;color:#fff;font-family:Segoe UI,Tahoma}
+  body{margin:0;background:#0b0b0b;color:white;font-family:Segoe UI,Tahoma}
   .toolbar{display:flex;gap:8px;align-items:center;padding:10px;background:#111;border-bottom:1px solid #222}
-  .btn{padding:8px 10px;background:#1f1f1f;border:1px solid #333;color:#eee;border-radius:8px;cursor:pointer}
+  .btn{padding:8px 10px;background:#222;border:1px solid #444;color:#eee;border-radius:8px;cursor:pointer}
   .btn.primary{background:#4a5de6;color:#fff;border:none}
-  .url{flex:1;padding:10px;border-radius:999px;border:1px solid #333;background:#0e0e0e;color:#fff}
-  select{padding:8px;border-radius:8px;background:#0d0d0d;color:#fff;border:1px solid #333}
-  .view{height:calc(100vh - 52px);display:flex;align-items:center;justify-content:center;background:#000}
+  .url{flex:1;padding:10px;border-radius:999px;border:1px solid #333;background:#0d0d0d;color:#fff}
+  select{padding:8px;border-radius:8px;background:#0d0d0d;color:white;border:1px solid #333}
+  .view{height:calc(100vh - 52px);display:flex;align-items:center;justify-content:center;background:black}
   .view img{max-width:100%;max-height:100%;object-fit:contain;cursor:pointer}
 </style>
 </head>
+
 <body>
 <div class="toolbar">
   <button id="backBtn" class="btn">◀</button>
   <button id="forwardBtn" class="btn">▶</button>
-  <input id="urlInput" class="url" placeholder="Enter URL" list="ac">
+  <input id="urlInput" class="url" placeholder="Enter URL">
   <button id="goBtn" class="btn primary">Go</button>
   <button id="refreshBtn" class="btn">⟳</button>
-  <select id="qualitySelect"><option value="low">Low</option><option value="medium" selected>Medium</option><option value="high">High</option></select>
+  <select id="qualitySelect">
+    <option value="low">Low</option>
+    <option value="medium" selected>Medium</option>
+    <option value="high">High</option>
+  </select>
 </div>
-<div class="view" id="browser"></div>
-<datalist id="ac"></datalist>
-<script>
-const BASE="${BACKEND_BASE}";
-let sessionId=null,hasNav=false,quality="medium";
 
-(async function(){
- const r=await fetch(BASE+"/session/create",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({userName:"${userName}"})});
- const j=await r.json(); sessionId=j.sessionId;
+<div class="view" id="browser">Loading...</div>
+
+<script>
+const BASE = "{{BASE}}";
+let sessionId = null, hasNav = false;
+
+// Create session
+(async()=>{
+  const r = await fetch(BASE + "/session/create", {
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({ userName:"{{USER}}" })
+  });
+  const j = await r.json();
+  sessionId = j.sessionId;
 })();
 
-document.getElementById('goBtn').onclick=async()=>{
- let u=urlInput.value.trim(); if(!/^https?:/i.test(u)) u='https://'+u;
- hasNav=true;
- await fetch(BASE+"/session/navigate",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sessionId,url:u})});
- update();
+// Go
+document.getElementById("goBtn").onclick = async ()=>{
+  let u = urlInput.value.trim();
+  if(!/^https?:/i.test(u)) u="https://"+u;
+  hasNav=true;
+  await fetch(BASE+"/session/navigate",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sessionId,url:u})});
+  update();
 };
 
+// Screenshot updater
 async function update(){
- if(!hasNav)return;
- const r=await fetch(BASE+"/session/screenshot/"+sessionId+"?quality="+quality,{cache:'no-store'});
- const b=await r.blob(); const u=URL.createObjectURL(b);
- browser.innerHTML=`<img id='img' src='${u}'>`;
- img.onclick=clickAt;
+  if(!hasNav) return;
+  const r=await fetch(BASE+"/session/screenshot/"+sessionId+"?quality="+qualitySelect.value,{cache:"no-store"});
+  const b=await r.blob();
+  const u=URL.createObjectURL(b);
+  browser.innerHTML="<img id='img' src='"+u+"'>";
+  document.getElementById("img").onclick = clickAt;
 }
-async function clickAt(e){ const r=e.target.getBoundingClientRect(); const x=(e.clientX-r.left)*(1366/r.width); const y=(e.clientY-r.top)*(768/r.height); await fetch(BASE+"/session/click",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sessionId,x,y})}); setTimeout(update,200);} 
+
+// click handler
+async function clickAt(e){
+  const r=e.target.getBoundingClientRect();
+  const x=(e.clientX-r.left)*(1366/r.width);
+  const y=(e.clientY-r.top)*(768/r.height);
+  await fetch(BASE+"/session/click",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sessionId,x,y})});
+  setTimeout(update,200);
+}
 </script>
-</body></html>`;} 
+</body>
+</html>
 </script>
-</body></html>
+
+
+<!-- ===========================
+     MAIN PAGE JS
+============================= -->
+<script>
+const BACKEND_BASE = "https://render-repo-osyl.onrender.com";
+let userName = "";
+
+// Status helper
+function setStatus(msg, type){
+  const el = document.getElementById("status");
+  el.textContent = msg;
+  el.className = "status " + type;
+}
+
+// Wake
+document.getElementById("wakeBtn").onclick = async ()=>{
+  setStatus("Pinging...", "loading");
+  try{
+    const r = await fetch(BACKEND_BASE + "/health");
+    const j = await r.json();
+    if(j.status === "ok") setStatus("Server awake!", "valid");
+    else setStatus("Server not OK", "invalid");
+  }catch{
+    setStatus("Unreachable", "invalid");
+  }
+};
+
+// Login
+document.getElementById("loginBtn").onclick = async ()=>{
+  const n = nameInput.value.trim();
+  const k = keyInput.value.trim();
+  if(!n || !k) return setStatus("Fill both fields", "invalid");
+
+  setStatus("Checking...", "loading");
+
+  try{
+    const r = await fetch(`${BACKEND_BASE}/validate?name=${encodeURIComponent(n)}&key=${encodeURIComponent(k)}`);
+    const j = await r.json();
+
+    if(j.valid){
+      userName = n;
+      setStatus("Welcome " + n, "valid");
+      loginForm.style.display = "none";
+      launchBtn.style.display = "block";
+    } else {
+      setStatus("Invalid key", "invalid");
+    }
+
+  }catch{
+    setStatus("Connection error", "invalid");
+  }
+};
+
+// Launch popup
+document.getElementById("launchBtn").onclick = ()=>{
+  const tmpl = document.getElementById("popup-template").innerHTML;
+  const win = window.open("", "_blank");
+
+  const html = tmpl
+    .replace(/{{BASE}}/g, BACKEND_BASE)
+    .replace(/{{USER}}/g, userName);
+
+  win.document.write(html);
+  win.document.close();
+};
+</script>
+
+</body>
+</html>
