@@ -165,105 +165,105 @@ document.getElementById("launchBtn").addEventListener("click", function(){
 });
 
 function createPopupHTML(){
-  return '<!DOCTYPE html>' +
-'<html><head>' +
-'<meta charset="utf-8">' +
-'<title>Remote Browser - ' + userName + '</title>' +
-'<style>' +
-'  body{margin:0;background:#0b0b0b;color:white;font-family:Segoe UI,Tahoma}' +
-'  .toolbar{display:flex;gap:8px;align-items:center;padding:10px;background:#111;border-bottom:1px solid #222}' +
-'  .btn{padding:8px 10px;background:#222;border:1px solid #444;color:#eee;border-radius:8px;cursor:pointer}' +
-'  .btn.primary{background:#4a5de6;color:#fff;border:none}' +
-'  .url{flex:1;padding:10px;border-radius:999px;border:1px solid #333;background:#0d0d0d;color:#fff}' +
-'  select{padding:8px;border-radius:8px;background:#0d0d0d;color:white;border:1px solid #333}' +
-'  .view{height:calc(100vh - 52px);display:flex;align-items:center;justify-content:center;background:black;position:relative}' +
-'  .view img{max-width:100%;max-height:100%;object-fit:contain;cursor:pointer}' +
-'  .status{position:absolute;bottom:10px;left:10px;background:rgba(0,0,0,0.7);padding:8px 12px;border-radius:6px;font-size:13px}' +
-'</style>' +
-'</head><body>' +
-'<div class="toolbar">' +
-'  <button id="backBtn" class="btn">◀</button>' +
-'  <button id="forwardBtn" class="btn">▶</button>' +
-'  <input id="urlInput" class="url" placeholder="Enter URL">' +
-'  <button id="goBtn" class="btn primary">Go</button>' +
-'  <button id="refreshBtn" class="btn">⟳</button>' +
-'  <select id="qualitySelect">' +
-'    <option value="low">Low</option>' +
-'    <option value="medium" selected>Medium</option>' +
-'    <option value="high">High</option>' +
-'  </select>' +
-'</div>' +
-'<div class="view" id="browser"><div class="status">Initializing...</div></div>' +
-'<script>' +
-'const BASE = "' + BACKEND_BASE + '";' +
-'let sessionId = null, hasNav = false, quality = "medium";' +
-'function updateStatus(msg){ const s = document.querySelector(".status"); if(s) s.textContent = msg; }' +
-'(async()=>{' +
-'  console.log("Creating session...");' +
-'  updateStatus("Creating session...");' +
-'  try{' +
-'    const r = await fetch(BASE + "/session/create", {' +
-'      method:"POST",' +
-'      headers:{"Content-Type":"application/json"},' +
-'      body:JSON.stringify({ userName:"' + userName + '", userKey:"hidden" })' +
-'    });' +
-'    console.log("Session response status:", r.status);' +
-'    if(!r.ok) throw new Error("Session create failed: " + r.status);' +
-'    const j = await r.json();' +
-'    console.log("Session data:", j);' +
-'    if(j.success && j.sessionId){' +
-'      sessionId = j.sessionId;' +
-'      console.log("Session ID:", sessionId);' +
-'      updateStatus("Ready - Enter URL to browse");' +
-'    } else throw new Error(j.error || "Unknown error");' +
-'  }catch(e){' +
-'    console.error("Session error:", e);' +
-'    updateStatus("Failed: " + e.message);' +
-'    document.getElementById("browser").innerHTML = "<div class=\\"status\\">❌ Session failed<br><small>" + e.message + "</small></div>";' +
-'  }' +
-'})();' +
-'document.getElementById("goBtn").addEventListener("click", async function(){' +
-'  console.log("Go clicked, sessionId:", sessionId);' +
-'  if(!sessionId) { updateStatus("No session"); return; }' +
-'  let u = document.getElementById("urlInput").value.trim();' +
-'  if(!u) return;' +
-'  if(!/^https?:/i.test(u)) u="https://"+u;' +
-'  hasNav=true;' +
-'  updateStatus("Loading...");' +
-'  try{' +
-'    await fetch(BASE+"/session/navigate",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sessionId,url:u})});' +
-'    setTimeout(update,400);' +
-'  }catch(e){ console.error(e); updateStatus("Nav failed"); }' +
-'});' +
-'document.getElementById("refreshBtn").addEventListener("click", ()=>update());' +
-'document.getElementById("qualitySelect").addEventListener("change", (e)=>{ quality = e.target.value; update(); });' +
-'document.getElementById("urlInput").addEventListener("keypress", (e)=>{ if(e.key === "Enter") document.getElementById("goBtn").click(); });' +
-'async function update(){' +
-'  if(!hasNav || !sessionId) return;' +
-'  try{' +
-'    updateStatus("Updating...");' +
-'    const r=await fetch(BASE+"/session/screenshot/"+sessionId+"?quality="+quality,{cache:"no-store"});' +
-'    if(!r.ok) throw new Error("Screenshot failed");' +
-'    const b=await r.blob();' +
-'    const u=URL.createObjectURL(b);' +
-'    document.getElementById("browser").innerHTML="<img id=\\'img\\' src=\\'"+u+"\\'><div class=\\'status\\'>Ready</div>";' +
-'    document.getElementById("img").onclick = clickAt;' +
-'    setTimeout(()=>{ try{ URL.revokeObjectURL(u); }catch{} },20000);' +
-'  }catch(e){ console.error(e); updateStatus("Update failed"); }' +
-'}' +
-'async function clickAt(e){' +
-'  if(!sessionId) return;' +
-'  const r=e.target.getBoundingClientRect();' +
-'  const x=Math.round((e.clientX-r.left)*(1366/r.width));' +
-'  const y=Math.round((e.clientY-r.top)*(768/r.height));' +
-'  updateStatus("Clicking...");' +
-'  try{' +
-'    await fetch(BASE+"/session/click",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sessionId,x,y})});' +
-'    setTimeout(update,250);' +
-'  }catch(e){ console.error(e); updateStatus("Click failed"); }' +
-'}' +
-'<\\/script>' +
-'</body></html>';
+  var popupHTML = '<!DOCTYPE html>';
+  popupHTML += '<html><head>';
+  popupHTML += '<meta charset="utf-8">';
+  popupHTML += '<title>Remote Browser - ' + userName + '</title>';
+  popupHTML += '<style>';
+  popupHTML += '  body{margin:0;background:#0b0b0b;color:white;font-family:Segoe UI,Tahoma}';
+  popupHTML += '  .toolbar{display:flex;gap:8px;align-items:center;padding:10px;background:#111;border-bottom:1px solid #222}';
+  popupHTML += '  .btn{padding:8px 10px;background:#222;border:1px solid #444;color:#eee;border-radius:8px;cursor:pointer}';
+  popupHTML += '  .btn.primary{background:#4a5de6;color:#fff;border:none}';
+  popupHTML += '  .url{flex:1;padding:10px;border-radius:999px;border:1px solid #333;background:#0d0d0d;color:#fff}';
+  popupHTML += '  select{padding:8px;border-radius:8px;background:#0d0d0d;color:white;border:1px solid #333}';
+  popupHTML += '  .view{height:calc(100vh - 52px);display:flex;align-items:center;justify-content:center;background:black;position:relative}';
+  popupHTML += '  .view img{max-width:100%;max-height:100%;object-fit:contain;cursor:pointer}';
+  popupHTML += '  .status{position:absolute;bottom:10px;left:10px;background:rgba(0,0,0,0.7);padding:8px 12px;border-radius:6px;font-size:13px}';
+  popupHTML += '</style>';
+  popupHTML += '</head><body>';
+  popupHTML += '<div class="toolbar">';
+  popupHTML += '  <button id="backBtn" class="btn">Back</button>';
+  popupHTML += '  <button id="forwardBtn" class="btn">Fwd</button>';
+  popupHTML += '  <input id="urlInput" class="url" placeholder="Enter URL">';
+  popupHTML += '  <button id="goBtn" class="btn primary">Go</button>';
+  popupHTML += '  <button id="refreshBtn" class="btn">Refresh</button>';
+  popupHTML += '  <select id="qualitySelect">';
+  popupHTML += '    <option value="low">Low</option>';
+  popupHTML += '    <option value="medium" selected>Medium</option>';
+  popupHTML += '    <option value="high">High</option>';
+  popupHTML += '  </select>';
+  popupHTML += '</div>';
+  popupHTML += '<div class="view" id="browser"><div class="status">Initializing...</div></div>';
+  popupHTML += '<' + 'script>';
+  popupHTML += 'var BASE = "' + BACKEND_BASE + '";';
+  popupHTML += 'var sessionId = null;';
+  popupHTML += 'var hasNav = false;';
+  popupHTML += 'var quality = "medium";';
+  popupHTML += 'function updateStatus(msg){ var s = document.querySelector(".status"); if(s) s.textContent = msg; }';
+  popupHTML += '(async function(){';
+  popupHTML += '  console.log("Creating session");';
+  popupHTML += '  updateStatus("Creating session...");';
+  popupHTML += '  try{';
+  popupHTML += '    var r = await fetch(BASE + "/session/create", {';
+  popupHTML += '      method:"POST",';
+  popupHTML += '      headers:{"Content-Type":"application/json"},';
+  popupHTML += '      body:JSON.stringify({ userName:"' + userName + '", userKey:"hidden" })';
+  popupHTML += '    });';
+  popupHTML += '    console.log("Response status:", r.status);';
+  popupHTML += '    if(!r.ok) throw new Error("Failed: " + r.status);';
+  popupHTML += '    var j = await r.json();';
+  popupHTML += '    console.log("Session data:", j);';
+  popupHTML += '    if(j.success && j.sessionId){';
+  popupHTML += '      sessionId = j.sessionId;';
+  popupHTML += '      console.log("Session ID:", sessionId);';
+  popupHTML += '      updateStatus("Ready - Enter URL");';
+  popupHTML += '    } else throw new Error(j.error || "Unknown");';
+  popupHTML += '  }catch(e){';
+  popupHTML += '    console.error("Error:", e);';
+  popupHTML += '    updateStatus("Failed: " + e.message);';
+  popupHTML += '  }';
+  popupHTML += '})();';
+  popupHTML += 'document.getElementById("goBtn").addEventListener("click", async function(){';
+  popupHTML += '  if(!sessionId) return;';
+  popupHTML += '  var u = document.getElementById("urlInput").value.trim();';
+  popupHTML += '  if(!u) return;';
+  popupHTML += '  if(!/^https?:/i.test(u)) u="https://"+u;';
+  popupHTML += '  hasNav=true;';
+  popupHTML += '  updateStatus("Loading...");';
+  popupHTML += '  try{';
+  popupHTML += '    await fetch(BASE+"/session/navigate",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sessionId:sessionId,url:u})});';
+  popupHTML += '    setTimeout(update,400);';
+  popupHTML += '  }catch(e){ updateStatus("Nav failed"); }';
+  popupHTML += '});';
+  popupHTML += 'document.getElementById("refreshBtn").addEventListener("click", function(){ update(); });';
+  popupHTML += 'document.getElementById("qualitySelect").addEventListener("change", function(e){ quality = e.target.value; update(); });';
+  popupHTML += 'document.getElementById("urlInput").addEventListener("keypress", function(e){ if(e.key === "Enter") document.getElementById("goBtn").click(); });';
+  popupHTML += 'async function update(){';
+  popupHTML += '  if(!hasNav || !sessionId) return;';
+  popupHTML += '  try{';
+  popupHTML += '    updateStatus("Updating...");';
+  popupHTML += '    var r=await fetch(BASE+"/session/screenshot/"+sessionId+"?quality="+quality,{cache:"no-store"});';
+  popupHTML += '    if(!r.ok) throw new Error("Screenshot failed");';
+  popupHTML += '    var b=await r.blob();';
+  popupHTML += '    var u=URL.createObjectURL(b);';
+  popupHTML += '    var html = "<img id=\\"img\\" src=\\""+u+"\\">";';
+  popupHTML += '    html += "<div class=\\"status\\">Ready</div>";';
+  popupHTML += '    document.getElementById("browser").innerHTML=html;';
+  popupHTML += '    document.getElementById("img").onclick = clickAt;';
+  popupHTML += '  }catch(e){ updateStatus("Update failed"); }';
+  popupHTML += '}';
+  popupHTML += 'function clickAt(e){';
+  popupHTML += '  if(!sessionId) return;';
+  popupHTML += '  var r=e.target.getBoundingClientRect();';
+  popupHTML += '  var x=Math.round((e.clientX-r.left)*(1366/r.width));';
+  popupHTML += '  var y=Math.round((e.clientY-r.top)*(768/r.height));';
+  popupHTML += '  updateStatus("Clicking...");';
+  popupHTML += '  fetch(BASE+"/session/click",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sessionId:sessionId,x:x,y:y})}).then(function(){ setTimeout(update,250); });';
+  popupHTML += '}';
+  popupHTML += '<' + '/script>';
+  popupHTML += '</body></html>';
+  
+  return popupHTML;
 }
 
 // Enter key support
