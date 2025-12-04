@@ -5,303 +5,142 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Render Proxy — Login</title>
   <style>
-    :root{ --accent: #4a5de6; --bg1: linear-gradient(135deg,#5568e6 0%,#6b3fa0 100%); --card-bg:#fff; --muted:#7a7a7a; --success:#28c36b }
+    :root{ --accent:#4a5de6; --bg1:linear-gradient(135deg,#5568e6,#6b3fa0); --card-bg:#fff; --muted:#7a7a7a; --success:#28c36b }
     *{box-sizing:border-box}
-    html,body{height:100%;margin:0;padding:0;font-family: "Segoe UI", Tahoma, sans-serif;background:var(--bg1);-webkit-font-smoothing:antialiased;overflow-x:hidden}
+    html,body{height:100%;margin:0;padding:0;font-family:Segoe UI,Tahoma,sans-serif;background:var(--bg1);overflow-x:hidden}
     .wrap{min-height:100%;display:flex;align-items:center;justify-content:center;padding:28px}
-    .card{width:100%;max-width:920px;display:grid;grid-template-columns:1fr 480px;gap:24px;align-items:stretch;border-radius:16px;box-shadow:0 20px 50px rgba(0,0,0,.25);overflow:hidden}
-    @media (max-width:900px){ .card{grid-template-columns:1fr;max-width:640px} }
-    .panel-left{padding:36px;background:linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,.02)); color:white}
-    .logo{font-size:22px;font-weight:700;color:#fff;display:flex;gap:10px;align-items:center}
-    .hero-title{font-size:28px;margin-top:18px;color:#fff;font-weight:700}
-    .hero-sub{color:rgba(255,255,255,0.7);margin-top:8px;font-size:14px}
+    .card{width:100%;max-width:920px;display:grid;grid-template-columns:1fr 480px;gap:24px;border-radius:16px;box-shadow:0 20px 50px rgba(0,0,0,.25);overflow:hidden}
+    @media(max-width:900px){.card{grid-template-columns:1fr;max-width:640px}}
+    .panel-left{padding:36px;background:rgba(255,255,255,.05);color:#fff}
+    .logo{font-size:22px;font-weight:700}
+    .hero-title{font-size:28px;margin-top:18px;font-weight:700}
+    .hero-sub{color:var(--muted);margin-top:8px;font-size:14px}
     .info-box{background:rgba(255,255,255,0.05);border-left:4px solid rgba(255,255,255,0.12);padding:12px;margin-top:18px;border-radius:8px}
-    .preview{height:100%;background:#0b0b0b;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#999;font-size:14px;overflow:hidden;min-height:200px}
-    .panel-right{background:var(--card-bg);padding:32px;min-width:320px}
-    h1{margin:0;font-size:22px;color:var(--accent);text-align:center}
-    .subtitle{font-size:13px;color:#666;text-align:center;margin-top:4px;margin-bottom:16px}
+    .preview{height:100%;background:#0b0b0b;border-radius:8px;margin-top:20px;display:flex;align-items:center;justify-content:center;color:#999;font-size:14px}
+    .panel-right{background:#fff;padding:32px}
+    h1{text-align:center;color:var(--accent);margin:0;font-size:22px}
+    .subtitle{text-align:center;color:#666;margin:4px 0 16px}
     .form-group{margin-bottom:14px}
-    label{display:block;font-size:13px;color:#333;margin-bottom:6px;font-weight:600}
-    input[type="text"]{width:100%;padding:12px 14px;border-radius:10px;border:1px solid #e6e6e6;font-size:15px}
-    input[type="text"]:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 4px rgba(74,93,230,.06)}
-    .btn{padding:12px 14px;border-radius:10px;border:0;font-weight:700;cursor:pointer;transition:background 0.2s}
-    .btn-primary{background:var(--accent);color:white;width:100%;margin-top:8px}
-    .btn-primary:hover{background:#3a4dd6}
-    .btn-wakeup{background:#ffd34d;color:#222;width:100%;margin-top:10px}
-    .btn-wakeup:hover{background:#f5c93d}
-    .btn-launch{background:var(--success);color:white;width:100%;padding:12px;border-radius:10px;font-size:16px;font-weight:800;display:none;margin-top:18px}
-    .btn-launch:hover{background:#20a557}
+    label{font-size:13px;margin-bottom:6px;display:block;color:#333;font-weight:600}
+    input[type=text]{width:100%;padding:12px;border:1px solid #ddd;border-radius:10px;font-size:15px}
+    input[type=text]:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 4px rgba(74,93,230,.1)}
+    .btn{padding:12px;border-radius:10px;border:0;font-weight:700;cursor:pointer;width:100%}
+    .btn-primary{background:var(--accent);color:#fff;margin-top:8px}
+    .btn-wake{background:#ffd34d;color:#000;margin-top:10px}
+    .btn-launch{background:var(--success);color:#fff;display:none;margin-top:18px;font-size:16px}
     .status{display:none;margin-top:16px;padding:12px;border-radius:8px;font-weight:700;text-align:center}
-    .status.valid{background:#e6fbec;color:#056632;display:block}
+    .status.valid{background:#e8ffe9;color:#056632;display:block}
     .status.invalid{background:#ffe9e9;color:#7b1f1f;display:block}
     .status.loading{background:#fff7e6;color:#7a5a00;display:block}
   </style>
 </head>
 <body>
-  <div class="wrap">
-    <div class="card" role="main">
-      <div class="panel-left">
-        <div class="logo">🌐 Render Proxy</div>
-        <div class="hero-title">Fast remote browsing</div>
-        <div class="hero-sub">RAM-optimized WebP streaming for Chromebooks.</div>
-        <div class="info-box"><small>💾 Server uses shared browser - sessions stay active for 2 hours!</small></div>
-        <div class="preview" id="previewPane">
-          <div style="text-align:center">
-            <div style="font-weight:700;margin-bottom:8px">✨ Preview</div>
-            <div style="color:#999;font-size:12px">Remote browser opens in a new tab.</div>
-            <div style="color:#999;font-size:12px;margin-top:4px">Auto-refresh keeps you connected.</div>
-          </div>
-        </div>
-      </div>
+<div class="wrap">
+  <div class="card">
+    <div class="panel-left">
+      <div class="logo">🌐 Render Proxy</div>
+      <div class="hero-title">Fast Remote Browsing</div>
+      <div class="hero-sub">Optimized for Chromebooks with WebP streaming.</div>
+      <div class="info-box"><small>Server may take a moment to wake.</small></div>
+      <div class="preview">Remote browser opens in a popup.</div>
+    </div>
 
-      <div class="panel-right">
-        <h1>Proxy Login</h1>
-        <div class="subtitle">Enter your name and key</div>
-        <div id="loginForm">
-          <div class="form-group">
-            <label for="nameInput">First & Last</label>
-            <input id="nameInput" type="text" placeholder="John Doe" autocomplete="off">
-          </div>
-          <div class="form-group">
-            <label for="keyInput">Access Key</label>
-            <input id="keyInput" type="text" placeholder="Enter your key" autocomplete="off">
-          </div>
-          <button class="btn btn-primary" id="loginBtn" onclick="authenticate()">Login</button>
-          <button class="btn btn-wakeup" id="wakeBtn" onclick="wakeUpServer()">☕ Wake Server</button>
-          <div class="status" id="status"></div>
-        </div>
-        <button class="btn-launch" id="launchBtn" onclick="launchProxy()">🚀 Launch Proxy Browser</button>
+    <div class="panel-right">
+      <h1>Proxy Login</h1>
+      <div class="subtitle">Enter your name and key</div>
+      <div id="loginForm">
+        <div class="form-group"><label>Name</label><input id="nameInput" type="text"></div>
+        <div class="form-group"><label>Access Key</label><input id="keyInput" type="text"></div>
+        <button class="btn btn-primary" id="loginBtn">Login</button>
+        <button class="btn btn-wake" id="wakeBtn">☕ Wake</button>
+        <div class="status" id="status"></div>
       </div>
+      <button class="btn btn-launch" id="launchBtn">🚀 Launch Proxy</button>
     </div>
   </div>
+</div>
 
 <script>
 const BACKEND_BASE = "https://render-repo-osyl.onrender.com";
-let userName = "";
+let userName="";
 
-function el(id){ return document.getElementById(id); }
-function showStatus(msg, type){
-  const s = el("status");
-  s.textContent = msg;
-  s.className = "status " + type;
-}
+function status(msg,type){const s=document.getElementById("status");s.textContent=msg;s.className="status "+type;}
 
-async function wakeUpServer(){
-  showStatus("Pinging server...", "loading");
-  try {
-    const r = await fetch(BACKEND_BASE + "/health");
-    const j = await r.json();
-    if (j.status === "ok") showStatus("✓ Server awake! Active sessions: " + j.activeSessions, "valid");
-    else showStatus("Server responded but not OK", "invalid");
-  } catch(e){ showStatus("Server unreachable - may be waking up", "loading"); }
-}
+document.getElementById("wakeBtn").onclick=async()=>{
+  status("Pinging server...","loading");
+  try{const r=await fetch(BACKEND_BASE+"/health");const j=await r.json();status(j.status==="ok"?"Server awake!":"Not OK","valid");}
+  catch{status("Unreachable","invalid");}
+};
 
-async function authenticate(){
-  const name = el("nameInput").value.trim();
-  const key = el("keyInput").value.trim();
-  if (!name || !key){ showStatus("Fill both fields", "invalid"); return; }
-  showStatus("Checking...", "loading");
+document.getElementById("loginBtn").onclick=async()=>{
+  const n=nameInput.value.trim(); const k=keyInput.value.trim();
+  if(!n||!k) return status("Fill both fields","invalid");
+  status("Checking...","loading");
   try{
-    const r = await fetch(BACKEND_BASE + "/validate?name=" + encodeURIComponent(name) + "&key=" + encodeURIComponent(key));
-    const j = await r.json();
-    if (j.valid){
-      userName = name;
-      showStatus("✓ Welcome, " + name + "!", "valid");
-      el("loginForm").style.display = "none";
-      el("launchBtn").style.display = "block";
-    } else showStatus("✗ Invalid name or key", "invalid");
-  } catch(e){ showStatus("Connection error", "invalid"); }
-}
+    const r=await fetch(`${BACKEND_BASE}/validate?name=${encodeURIComponent(n)}&key=${encodeURIComponent(k)}`);
+    const j=await r.json();
+    if(j.valid){ userName=n; status(`Welcome ${n}`,"valid"); loginForm.style.display="none"; launchBtn.style.display="block"; }
+    else status("Invalid","invalid");
+  }catch{ status("Connection error","invalid"); }
+};
 
-function launchProxy(){
-  const w = window.open("", "_blank");
-  if (!w){ alert("Enable popups to launch proxy"); return; }
-  const html = createProxyHTML();
-  w.document.open();
-  w.document.write(html);
-  w.document.close();
-}
+document.getElementById("launchBtn").onclick=()=>{
+  const w=window.open("","_blank");
+  if(!w){alert("Enable popups");return;}
+  w.document.write(popupHTML()); w.document.close();
+};
 
-function createProxyHTML(){
-  return '<!DOCTYPE html>' +
-'<html lang="en">' +
-'<head>' +
-'<meta charset="utf-8">' +
-'<meta name="viewport" content="width=device-width,initial-scale=1">' +
-'<title>Remote Browser - ' + userName + '</title>' +
-'<style>' +
-'  :root{ --accent:#4a5de6; --bg:#0b0b0b }' +
-'  *{box-sizing:border-box}' +
-'  html,body{height:100%;margin:0;background:var(--bg);color:#fff;font-family:Segoe UI, Tahoma, sans-serif}' +
-'  .toolbar{display:flex;gap:8px;align-items:center;padding:10px;background:#121212;border-bottom:1px solid #222}' +
-'  .btn{background:#1f1f1f;border:1px solid #2b2b2b;color:#ddd;padding:8px 10px;border-radius:8px;cursor:pointer}' +
-'  .btn.primary{background:var(--accent);border:none;color:#fff}' +
-'  .url-wrap{display:flex;flex:1;align-items:center;gap:8px}' +
-'  .url-input{flex:1;padding:10px 14px;border-radius:999px;border:1px solid #333;background:#0e0e0e;color:#fff;font-size:14px}' +
-'  select{padding:8px;border-radius:8px;background:#0d0d0d;color:#fff;border:1px solid #333}' +
-'  .view{height:calc(100vh - 56px);background:#000;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden}' +
-'  .view img{max-width:100%;max-height:100%;object-fit:contain;cursor:pointer}' +
-'  .status{position:absolute;left:12px;bottom:12px;background:rgba(0,0,0,0.7);padding:8px 12px;border-radius:8px;font-size:13px;color:#ccc}' +
-'</style>' +
-'</head>' +
-'<body>' +
-'  <div class="toolbar">' +
-'    <button id="backBtn" class="btn" title="Back">◀</button>' +
-'    <button id="forwardBtn" class="btn" title="Forward">▶</button>' +
-'    <div class="url-wrap">' +
-'      <input id="urlInput" class="url-input" placeholder="Enter URL (e.g. example.com)">' +
-'    </div>' +
-'    <button id="goBtn" class="btn primary">Go</button>' +
-'    <button id="refreshBtn" class="btn">⟲</button>' +
-'    <select id="qualitySelect">' +
-'      <option value="low">Low</option>' +
-'      <option value="medium" selected>Medium</option>' +
-'      <option value="high">High</option>' +
-'    </select>' +
-'  </div>' +
-'  <div class="view" id="browserContent">' +
-'    <div class="status" id="statusBar">Initializing...</div>' +
-'  </div>' +
-'<script>' +
-'  const BASE = "' + BACKEND_BASE + '";' +
-'  let sessionId = null;' +
-'  let quality = "medium";' +
-'  let hasNavigated = false;' +
-'  let isLoading = false;' +
-'  let heartbeatInterval = null;' +
-'  async function createSession(){' +
-'    updateStatus("Creating session...");' +
-'    try{' +
-'      const controller = new AbortController();' +
-'      const timeout = setTimeout(()=>controller.abort(),60000);' +
-'      const res = await fetch(BASE + "/session/create",{' +
-'        method:"POST", ' +
-'        headers:{"Content-Type":"application/json"},' +
-'        body: JSON.stringify({ userName: "' + userName + '", userKey: "hidden" }), ' +
-'        signal: controller.signal' +
-'      });' +
-'      clearTimeout(timeout);' +
-'      if(!res.ok) throw new Error("Create session failed: "+res.status);' +
-'      const j = await res.json();' +
-'      if(j.success && j.sessionId){ ' +
-'        sessionId = j.sessionId; ' +
-'        updateStatus("Session ready - Enter URL to browse"); ' +
-'        startHeartbeat();' +
-'      } else throw new Error(j.error || "Unknown");' +
-'    }catch(err){' +
-'      console.error("createSession error",err);' +
-'      updateStatus("Session error: "+(err.name==="AbortError"?"Timed out":"Failed"));' +
-'      document.getElementById("browserContent").innerHTML = "<div style=\\"color:#f66;padding:20px;text-align:center\\">Failed to create session<br><button id=\\"retryBtn\\" style=\\"margin-top:12px;padding:8px 12px;background:#4a5de6;color:#fff;border:none;border-radius:6px;cursor:pointer\\">Retry</button></div>";' +
-'      const rb = document.getElementById("retryBtn"); ' +
-'      if(rb) rb.onclick = ()=>{ ' +
-'        document.getElementById("browserContent").innerHTML = "<div class=\\"status\\">Initializing...</div>"; ' +
-'        createSession(); ' +
-'      }' +
-'    }' +
-'  }' +
-'  function startHeartbeat(){' +
-'    if(heartbeatInterval) clearInterval(heartbeatInterval);' +
-'    heartbeatInterval = setInterval(()=>{' +
-'      if(sessionId && !isLoading && hasNavigated){' +
-'        updateScreenshot(true);' +
-'      }' +
-'    }, 15000);' +
-'  }' +
-'  function updateStatus(msg){ ' +
-'    const s = document.getElementById("statusBar"); ' +
-'    if(s) s.textContent = msg; ' +
-'  }' +
-'  async function navigate(){' +
-'    if(!sessionId) return;' +
-'    let url = document.getElementById("urlInput").value.trim();' +
-'    if(!url) return;' +
-'    if(!/^https?:\\/\\//i.test(url)) url = "https://" + url;' +
-'    isLoading = true; ' +
-'    updateStatus("Loading...");' +
-'    try{' +
-'      const r = await fetch(BASE + "/session/navigate", { ' +
-'        method:"POST", ' +
-'        headers:{"Content-Type":"application/json"}, ' +
-'        body: JSON.stringify({ sessionId, url }) ' +
-'      });' +
-'      const j = await r.json();' +
-'      if(j.success){ ' +
-'        hasNavigated = true; ' +
-'        updateStatus(j.title || j.url || "Loaded"); ' +
-'        setTimeout(()=>updateScreenshot(),200); ' +
-'      } else updateStatus("Navigation failed");' +
-'    }catch(e){ ' +
-'      console.error(e); ' +
-'      updateStatus("Navigation error"); ' +
-'    } finally{ ' +
-'      isLoading = false; ' +
-'    }' +
-'  }' +
-'  async function updateScreenshot(silent){' +
-'    if(!sessionId) return;' +
-'    if(!hasNavigated) return;' +
-'    silent = silent || false;' +
-'    try{' +
-'      if(!silent) isLoading = true;' +
-'      if(!silent) updateStatus("Updating...");' +
-'      const r = await fetch(BASE + "/session/screenshot/" + sessionId + "?quality=" + encodeURIComponent(quality), { cache: "no-store" });' +
-'      if(!r.ok) { updateStatus("Screenshot error"); return; }' +
-'      const blob = await r.blob();' +
-'      const url = URL.createObjectURL(blob);' +
-'      const c = document.getElementById("browserContent");' +
-'      c.innerHTML = "<img id=\\"simg\\" src=\\""+url+"\\">";' +
-'      const img = document.getElementById("simg");' +
-'      img.onclick = handleClick;' +
-'      setTimeout(()=>{ try{ URL.revokeObjectURL(url); }catch{} },20000);' +
-'      if(!silent) updateStatus("Ready");' +
-'    }catch(e){ ' +
-'      console.error(e); ' +
-'      if(!silent) updateStatus("Screenshot failed"); ' +
-'    }finally{ ' +
-'      if(!silent) isLoading = false; ' +
-'    }' +
-'  }' +
-'  async function handleClick(e){ ' +
-'    if(!sessionId || isLoading) return; ' +
-'    const rect = e.target.getBoundingClientRect(); ' +
-'    const x = Math.round((e.clientX - rect.left) * (1024 / rect.width)); ' +
-'    const y = Math.round((e.clientY - rect.top) * (600 / rect.height)); ' +
-'    updateStatus("Clicking..."); ' +
-'    try{ ' +
-'      await fetch(BASE + "/session/click", { ' +
-'        method:"POST", ' +
-'        headers:{"Content-Type":"application/json"}, ' +
-'        body: JSON.stringify({ sessionId, x, y }) ' +
-'      }); ' +
-'      setTimeout(()=>updateScreenshot(),150); ' +
-'    }catch(e){ ' +
-'      updateStatus("Click failed"); ' +
-'    } ' +
-'  }' +
-'  document.getElementById("goBtn").addEventListener("click", navigate);' +
-'  document.getElementById("refreshBtn").addEventListener("click", ()=>updateScreenshot());' +
-'  document.getElementById("qualitySelect").addEventListener("change", (e)=>{ ' +
-'    quality = e.target.value; ' +
-'    updateScreenshot(); ' +
-'  });' +
-'  document.getElementById("urlInput").addEventListener("keypress", (e)=>{' +
-'    if(e.key === "Enter") navigate();' +
-'  });' +
-'  window.addEventListener("beforeunload", ()=>{ ' +
-'    if(heartbeatInterval) clearInterval(heartbeatInterval);' +
-'    if(sessionId){ ' +
-'      navigator.sendBeacon(BASE + "/session/close", JSON.stringify({ sessionId })); ' +
-'    } ' +
-'  });' +
-'  createSession();' +
-'<\/script>' +
-'</body>' +
-'</html>';
-}
+// ------------------- POPUP WINDOW -------------------
+function popupHTML(){return `<!DOCTYPE html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Remote Browser</title>
+<style>
+  body{margin:0;background:#0b0b0b;color:#fff;font-family:Segoe UI,Tahoma}
+  .toolbar{display:flex;gap:8px;align-items:center;padding:10px;background:#111;border-bottom:1px solid #222}
+  .btn{padding:8px 10px;background:#1f1f1f;border:1px solid #333;color:#eee;border-radius:8px;cursor:pointer}
+  .btn.primary{background:#4a5de6;color:#fff;border:none}
+  .url{flex:1;padding:10px;border-radius:999px;border:1px solid #333;background:#0e0e0e;color:#fff}
+  select{padding:8px;border-radius:8px;background:#0d0d0d;color:#fff;border:1px solid #333}
+  .view{height:calc(100vh - 52px);display:flex;align-items:center;justify-content:center;background:#000}
+  .view img{max-width:100%;max-height:100%;object-fit:contain;cursor:pointer}
+</style>
+</head>
+<body>
+<div class="toolbar">
+  <button id="backBtn" class="btn">◀</button>
+  <button id="forwardBtn" class="btn">▶</button>
+  <input id="urlInput" class="url" placeholder="Enter URL" list="ac">
+  <button id="goBtn" class="btn primary">Go</button>
+  <button id="refreshBtn" class="btn">⟳</button>
+  <select id="qualitySelect"><option value="low">Low</option><option value="medium" selected>Medium</option><option value="high">High</option></select>
+</div>
+<div class="view" id="browser"></div>
+<datalist id="ac"></datalist>
+<script>
+const BASE="${BACKEND_BASE}";
+let sessionId=null,hasNav=false,quality="medium";
 
-// Enter key handlers
-el("nameInput").onkeypress = e=>{ if(e.key==="Enter") el("keyInput").focus(); };
-el("keyInput").onkeypress = e=>{ if(e.key==="Enter") authenticate(); };
+(async function(){
+ const r=await fetch(BASE+"/session/create",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({userName:"${userName}"})});
+ const j=await r.json(); sessionId=j.sessionId;
+})();
+
+document.getElementById('goBtn').onclick=async()=>{
+ let u=urlInput.value.trim(); if(!/^https?:/i.test(u)) u='https://'+u;
+ hasNav=true;
+ await fetch(BASE+"/session/navigate",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sessionId,url:u})});
+ update();
+};
+
+async function update(){
+ if(!hasNav)return;
+ const r=await fetch(BASE+"/session/screenshot/"+sessionId+"?quality="+quality,{cache:'no-store'});
+ const b=await r.blob(); const u=URL.createObjectURL(b);
+ browser.innerHTML=`<img id='img' src='${u}'>`;
+ img.onclick=clickAt;
+}
+async function clickAt(e){ const r=e.target.getBoundingClientRect(); const x=(e.clientX-r.left)*(1366/r.width); const y=(e.clientY-r.top)*(768/r.height); await fetch(BASE+"/session/click",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sessionId,x,y})}); setTimeout(update,200);} 
 </script>
-</body>
-</html>
+</body></html>`;} 
+</script>
+</body></html>
