@@ -1,6 +1,7 @@
 import express from "express";
 import cors from "cors";
-import puppeteer from "puppeteer";
+import puppeteer from "puppeteer-core";
+import chromium from "@sparticuz/chromium";
 
 const app = express();
 app.use(express.json({ limit: "1mb" }));
@@ -47,15 +48,10 @@ async function getBrowser() {
   if (!sharedBrowser || !sharedBrowser.isConnected()) {
     console.log('🚀 Launching shared browser...');
     sharedBrowser = await puppeteer.launch({
-      headless: "new",
-      args: [
-        "--no-sandbox",
-        "--disable-setuid-sandbox",
-        "--disable-dev-shm-usage",
-        "--disable-gpu",
-        "--single-process",
-        "--no-zygote"
-      ]
+      args: chromium.args,
+      defaultViewport: { width: 1366, height: 768 },
+      executablePath: await chromium.executablePath(),
+      headless: chromium.headless
     });
     console.log('✅ Browser ready');
   }

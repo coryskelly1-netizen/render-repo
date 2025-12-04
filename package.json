@@ -12,6 +12,7 @@
   "dependencies": {
     "express": "^4.19.2",
     "cors": "^2.8.5",
-    "puppeteer": "^22.7.1"
+    "puppeteer-core": "^21.5.0",
+    "@sparticuz/chromium": "^119.0.0"
   }
 }
