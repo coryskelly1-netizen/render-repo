@@ -226,8 +226,12 @@ app.get("/session/screenshot/:id", async (req, res) => {
     const session = sessions.get(sessionId);
     const { page } = session;
 
-    const qualityMap = { low: 40, medium: 60, high: 80 };
-    const q = qualityMap[quality] || 60;
+    const qualityMap = { 
+      low: 25,      // Ultra low quality (Chromebook-like)
+      medium: 40,   // Low quality
+      high: 60      // Medium quality
+    };
+    const q = qualityMap[quality] || 40;
 
     const buffer = await page.screenshot({
       type: "webp",
