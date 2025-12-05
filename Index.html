@@ -42,7 +42,7 @@
  .bar { background:#111; padding:8px; display:flex; gap:8px; }
  .btn { background:#222; border:1px solid #333; color:#fff; padding:8px; border-radius:6px; cursor:pointer; }
  .main { height:calc(100vh - 48px); display:flex; align-items:center; justify-content:center; }
- img { max-width:100%; max-height:100%; object-fit:contain; }
+ img { max-width:100%; max-height:100%; object-fit:contain; user-select:none; }
  .url { flex:1; padding:8px; background:#0d0d0d; border:1px solid #333; color:#fff; border-radius:999px; }
 </style>
 </head>
@@ -55,38 +55,39 @@
   <button id="go" class="btn">Go</button>
 </div>
 
-<div id="view" class="main">Loading...</div>
+<div id="view" class="main">Waiting for video…</div>
 
 <script>
 (function(){
+
  const ws = new WebSocket("{{WS}}");
  ws.binaryType = "arraybuffer";
-
- let pageReady = false;
 
  ws.onopen = () => {
    ws.send(JSON.stringify({ type:"control", action:"create", userName:"{{USER}}" }));
  };
 
  ws.onmessage = (e) => {
+   // Control messages
    if (typeof e.data === "string") {
      let j = JSON.parse(e.data);
      if (j.action === "created") {
-       // Start stream
        ws.send(JSON.stringify({ type:"control", action:"startStream" }));
      }
      return;
    }
 
-   // binary jpeg frame
+   // Binary JPEG frame
    const blob = new Blob([e.data], { type:"image/jpeg" });
    const url = URL.createObjectURL(blob);
+
    const v = document.getElementById("view");
    v.innerHTML = "<img id='frame' src='"+url+"'>";
-   setTimeout(() => URL.revokeObjectURL(url), 12000);
+
+   setTimeout(()=>URL.revokeObjectURL(url), 8000);
 
    const img = document.getElementById("frame");
-   img.onclick = (ev) => {
+   img.onclick = (ev)=>{
      const r = img.getBoundingClientRect();
      const x = Math.round((ev.clientX - r.left) * (1366 / r.width));
      const y = Math.round((ev.clientY - r.top) * (768 / r.height));
@@ -94,27 +95,39 @@
    };
  };
 
- // UI actions
- document.getElementById("go").onclick = () => {
-   const u = document.getElementById("url").value.trim();
+ // Navigation
+ document.getElementById("go").onclick = ()=>{
+   let u = document.getElementById("url").value.trim();
    if (!u) return;
+   if (!/^https?:\/\//i.test(u)) u = "https://" + u;
    ws.send(JSON.stringify({ type:"control", action:"navigate", url:u }));
  };
 
- document.getElementById("back").onclick = () =>
-   ws.send(JSON.stringify({ type:"control", action:"back" }));
+ document.getElementById("back").onclick =
+   ()=> ws.send(JSON.stringify({ type:"control", action:"back" }));
 
- document.getElementById("forward").onclick = () =>
-   ws.send(JSON.stringify({ type:"control", action:"forward" }));
+ document.getElementById("forward").onclick =
+   ()=> ws.send(JSON.stringify({ type:"control", action:"forward" }));
 
+ // Scroll
  document.getElementById("view").addEventListener("wheel",(ev)=>{
    ev.preventDefault();
-   ws.send(JSON.stringify({type:"control",action:"scroll",dx:0,dy:Math.round(ev.deltaY)}));
- },{passive:false});
+   ws.send(JSON.stringify({
+     type:"control",
+     action:"scroll",
+     dx:0,
+     dy:Math.round(ev.deltaY)
+   }));
+ }, { passive:false });
 
+ // Keyboard typing
  document.addEventListener("keydown",(e)=>{
    if (document.activeElement.id === "url") return;
-   ws.send(JSON.stringify({type:"control",action:"type",text:e.key}));
+   ws.send(JSON.stringify({
+     type:"control",
+     action:"type",
+     text:e.key
+   }));
  });
 
 })();
@@ -125,6 +138,7 @@
 
 <script>
 const API = "https://render-repo-osyl.onrender.com";
+
 function setStatus(msg, ok) {
   const el = document.getElementById("status");
   el.textContent = msg;
@@ -143,8 +157,10 @@ document.getElementById("wake").onclick = async () => {
 };
 
 document.getElementById("login").onclick = async () => {
-  const name = document.getElementById("name").value;
-  const key = document.getElementById("key").value;
+  const name = document.getElementById("name").value.trim();
+  const key = document.getElementById("key").value.trim();
+
+  if (!name || !key) return setStatus("Missing fields", false);
 
   const r = await fetch(API + "/validate?name=" + name + "&key=" + key);
   const j = await r.json();
@@ -152,6 +168,7 @@ document.getElementById("login").onclick = async () => {
   if (!j.valid) return setStatus("Invalid login", false);
 
   const wsURL = API.replace("https://", "wss://") + "/ws";
+
   const tpl = document.getElementById("tpl").innerHTML
     .replace(/{{USER}}/g, name)
     .replace(/{{WS}}/g, wsURL);
@@ -161,8 +178,9 @@ document.getElementById("login").onclick = async () => {
   w.document.write(tpl);
   w.document.close();
 
-  setStatus("Popup opened!", true);
+  setStatus("Proxy Launched!", true);
 };
 </script>
+
 </body>
 </html>
