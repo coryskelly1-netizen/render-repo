@@ -14,6 +14,6 @@
     "cors": "^2.8.5",
     "ws": "^8.13.0",
     "puppeteer-core": "^21.3.7",
-    "@sparticuz/chromium": "119.0.6"
+    "@sparticuz/chromium": "114.0.0"
   }
 }

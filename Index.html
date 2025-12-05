@@ -1,191 +1,167 @@
 <!doctype html>
-<html lang="en">
+<html>
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Render Proxy — Login</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Render Proxy Login</title>
 <style>
-  :root{--accent:#4a5de6;--bg1:linear-gradient(135deg,#5568e6,#6b3fa0)}
-  *{box-sizing:border-box}
-  body{margin:0;font-family:Segoe UI,Tahoma;background:var(--bg1);-webkit-font-smoothing:antialiased}
-  .wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:28px}
-  .card{width:100%;max-width:920px;display:grid;grid-template-columns:1fr 420px;gap:20px;border-radius:12px;background:rgba(255,255,255,0.06);padding:20px;color:#fff}
-  .panel-right{background:#fff;padding:24px;border-radius:10px;color:#222}
-  input{width:100%;padding:10px;border-radius:8px;border:1px solid #ddd}
-  .btn{padding:10px;border-radius:8px;border:0;background:#4a5de6;color:#fff;cursor:pointer;width:100%}
-  .btn.secondary{background:#ffd34d;color:#111}
-  .status{margin-top:12px;padding:8px;border-radius:6px;display:none}
-  .status.valid{display:block;background:#e8ffe9;color:#056632}
-  .status.invalid{display:block;background:#ffe9e9;color:#7b1f1f}
+  body { font-family:Segoe UI,Tahoma; margin:0; background:#4a5de6; color:#fff;
+         display:flex; align-items:center; justify-content:center; height:100vh; }
+  .card { background:#fff; color:#222; padding:28px; width:320px; border-radius:12px;
+          box-shadow:0 8px 30px rgba(0,0,0,.25); }
+  input { width:100%; padding:10px; margin-top:8px; border-radius:8px; border:1px solid #ccc; }
+  button { width:100%; margin-top:12px; padding:12px; border-radius:8px;
+           border:0; cursor:pointer; background:#4a5de6; color:#fff; font-weight:700; }
+  .sec { background:#ffd34d; color:#000; }
+  .status { margin-top:10px; padding:10px; border-radius:6px; display:none; }
+  .ok { display:block; background:#e6ffe8; color:#056632; }
+  .bad { display:block; background:#ffe8e8; color:#7b1f1f; }
 </style>
 </head>
 <body>
-<div class="wrap">
-  <div class="card">
-    <div>
-      <h2>Render Proxy</h2>
-      <p>Low-latency MJPEG streaming via WebSocket. Opens remote browser in a popup.</p>
-      <div style="height:200px;background:#0b0b0b;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#999">Preview in popup</div>
-    </div>
 
-    <div class="panel-right">
-      <h3>Login</h3>
-      <label>Name</label>
-      <input id="name" placeholder="Alice">
-      <label style="margin-top:8px">Key</label>
-      <input id="key" placeholder="8392017">
-      <button id="wake" class="btn secondary" style="margin-top:12px">☕ Wake</button>
-      <button id="login" class="btn" style="margin-top:8px">Login & Launch</button>
-      <div id="status" class="status"></div>
-    </div>
-  </div>
+<div class="card">
+  <h2>Render Proxy</h2>
+
+  <input id="name" placeholder="Your Name">
+  <input id="key" placeholder="Your Key">
+
+  <button class="sec" id="wake">☕ Wake Server</button>
+  <button id="login">Login & Launch</button>
+
+  <div id="status" class="status"></div>
 </div>
 
-<!-- popup template (safe) -->
-<script type="text/template" id="popup-tpl">
-<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Remote Browser</title>
-<style>body{margin:0;font-family:Segoe UI,Tahoma;background:#000;color:#fff} .toolbar{display:flex;gap:8px;align-items:center;padding:8px;background:#111} .btn{padding:8px;border-radius:6px;border:1px solid #333;background:#222;color:#fff;cursor:pointer} .btn.primary{background:#4a5de6;border:none} .url{flex:1;padding:8px;border-radius:999px;border:1px solid #333;background:#0d0d0d;color:#fff} .view{height:calc(100vh - 56px);display:flex;align-items:center;justify-content:center;background:#000} img{max-width:100%;max-height:100%;object-fit:contain}</style>
-</head><body>
-<div class="toolbar">
+<!-- Popup Template -->
+<script type="text/template" id="tpl">
+<!doctype html><html><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Remote Browser</title>
+<style>
+ body { margin:0; background:#000; color:#fff; font-family:Segoe UI,Tahoma; }
+ .bar { background:#111; padding:8px; display:flex; gap:8px; }
+ .btn { background:#222; border:1px solid #333; color:#fff; padding:8px; border-radius:6px; cursor:pointer; }
+ .main { height:calc(100vh - 48px); display:flex; align-items:center; justify-content:center; }
+ img { max-width:100%; max-height:100%; object-fit:contain; }
+ .url { flex:1; padding:8px; background:#0d0d0d; border:1px solid #333; color:#fff; border-radius:999px; }
+</style>
+</head>
+<body>
+
+<div class="bar">
   <button id="back" class="btn">◀</button>
   <button id="forward" class="btn">▶</button>
   <input id="url" class="url" placeholder="example.com">
-  <button id="go" class="btn primary">Go</button>
-  <button id="refresh" class="btn">⟳</button>
-  <select id="quality" class="btn">
-    <option value="low">Low</option><option value="medium" selected>Medium</option><option value="high">High</option>
-  </select>
+  <button id="go" class="btn">Go</button>
 </div>
-<div id="view" class="view">Loading...</div>
+
+<div id="view" class="main">Loading...</div>
 
 <script>
 (function(){
-  const BASE_WS = "{{WS}}"; // replaced by opener
-  const ws = new WebSocket(BASE_WS);
-  let sessionId = null;
-  let streaming = false;
+ const ws = new WebSocket("{{WS}}");
+ ws.binaryType = "arraybuffer";
 
-  ws.binaryType = "arraybuffer";
+ let pageReady = false;
 
-  ws.onopen = ()=> {
-    // request page creation
-    ws.send(JSON.stringify({ type: "control", action: "create", userName: "{{USER}}" }));
-  };
+ ws.onopen = () => {
+   ws.send(JSON.stringify({ type:"control", action:"create", userName:"{{USER}}" }));
+ };
 
-  ws.onmessage = (ev) => {
-    if (typeof ev.data === "string") {
-      try {
-        const j = JSON.parse(ev.data);
-        if (j.type === "info" && j.action === "created") {
-          sessionId = j.sessionId;
-          // ask server to start streaming frames
-          ws.send(JSON.stringify({ type:"control", action:"startStream" }));
-        }
-      } catch (e) {
-        console.error("ws msg parse", e);
-      }
-      return;
-    }
-    // binary frame (jpeg)
-    const blob = new Blob([ev.data], { type: "image/jpeg" });
-    const url = URL.createObjectURL(blob);
-    const view = document.getElementById("view");
-    view.innerHTML = `<img id="frame" src="${url}">`;
-    // revoke after a bit
-    setTimeout(()=>URL.revokeObjectURL(url), 15000);
+ ws.onmessage = (e) => {
+   if (typeof e.data === "string") {
+     let j = JSON.parse(e.data);
+     if (j.action === "created") {
+       // Start stream
+       ws.send(JSON.stringify({ type:"control", action:"startStream" }));
+     }
+     return;
+   }
 
-    // attach click handler on image
-    const img = document.getElementById("frame");
-    if (img) {
-      img.onclick = (e) => {
-        const rect = img.getBoundingClientRect();
-        const x = Math.round((e.clientX - rect.left) * (1366 / rect.width));
-        const y = Math.round((e.clientY - rect.top) * (768 / rect.height));
-        ws.send(JSON.stringify({ type:"control", action:"click", x, y }));
-      }
-    }
-  };
+   // binary jpeg frame
+   const blob = new Blob([e.data], { type:"image/jpeg" });
+   const url = URL.createObjectURL(blob);
+   const v = document.getElementById("view");
+   v.innerHTML = "<img id='frame' src='"+url+"'>";
+   setTimeout(() => URL.revokeObjectURL(url), 12000);
 
-  ws.onclose = ()=> console.log("ws closed");
-  ws.onerror = (e)=> console.error("ws err", e);
+   const img = document.getElementById("frame");
+   img.onclick = (ev) => {
+     const r = img.getBoundingClientRect();
+     const x = Math.round((ev.clientX - r.left) * (1366 / r.width));
+     const y = Math.round((ev.clientY - r.top) * (768 / r.height));
+     ws.send(JSON.stringify({ type:"control", action:"click", x, y }));
+   };
+ };
 
-  // UI actions
-  document.getElementById("go").onclick = async ()=>{
-    const u = document.getElementById("url").value.trim();
-    if (!u) return;
-    ws.send(JSON.stringify({ type:"control", action:"navigate", url: u }));
-  };
-  document.getElementById("refresh").onclick = ()=> ws.send(JSON.stringify({ type:"control", action:"startStream" }));
-  document.getElementById("back").onclick = ()=> ws.send(JSON.stringify({ type:"control", action:"back" }));
-  document.getElementById("forward").onclick = ()=> ws.send(JSON.stringify({ type:"control", action:"forward" }));
+ // UI actions
+ document.getElementById("go").onclick = () => {
+   const u = document.getElementById("url").value.trim();
+   if (!u) return;
+   ws.send(JSON.stringify({ type:"control", action:"navigate", url:u }));
+ };
 
-  // scroll wheel -> send scroll actions
-  document.getElementById("view").addEventListener("wheel", (ev)=>{
-    ev.preventDefault();
-    ws.send(JSON.stringify({ type:"control", action:"scroll", dx:0, dy: Math.round(ev.deltaY) }));
-  }, { passive:false });
+ document.getElementById("back").onclick = () =>
+   ws.send(JSON.stringify({ type:"control", action:"back" }));
 
-  // keyboard typing: when user focuses nothing, send key presses
-  document.addEventListener("keydown", (e)=>{
-    const active = document.activeElement;
-    if (active && active.id === "url") return;
-    // send single key
-    ws.send(JSON.stringify({ type:"control", action:"type", text: e.key }));
-    // if Enter, also request fresh screenshot
-    if (e.key === "Enter") ws.send(JSON.stringify({ type:"control", action:"startStream" }));
-  });
+ document.getElementById("forward").onclick = () =>
+   ws.send(JSON.stringify({ type:"control", action:"forward" }));
+
+ document.getElementById("view").addEventListener("wheel",(ev)=>{
+   ev.preventDefault();
+   ws.send(JSON.stringify({type:"control",action:"scroll",dx:0,dy:Math.round(ev.deltaY)}));
+ },{passive:false});
+
+ document.addEventListener("keydown",(e)=>{
+   if (document.activeElement.id === "url") return;
+   ws.send(JSON.stringify({type:"control",action:"type",text:e.key}));
+ });
 
 })();
 </script>
+
 </body></html>
 </script>
 
 <script>
-const BACKEND_HTTP = "https://render-repo-osyl.onrender.com";
-const WS_URL = (location.protocol === "https:" ? "wss://" : "ws://") + location.host + "/ws";
-
-const statusEl = document.getElementById("status");
-function setStatus(msg, ok){
-  statusEl.textContent = msg;
-  statusEl.className = "status " + (ok ? "valid" : "invalid");
+const API = "https://render-repo-osyl.onrender.com";
+function setStatus(msg, ok) {
+  const el = document.getElementById("status");
+  el.textContent = msg;
+  el.className = "status " + (ok ? "ok" : "bad");
 }
 
-// Wake ping
 document.getElementById("wake").onclick = async () => {
-  setStatus("Pinging...", false);
+  setStatus("Waking...", false);
   try {
-    const r = await fetch(BACKEND_HTTP + "/health");
+    const r = await fetch(API + "/health");
     const j = await r.json();
-    if (j.status === "ok") setStatus("Server awake", true);
-    else setStatus("Server not OK", false);
-  } catch (e) {
+    setStatus(j.status === "ok" ? "Server Ready" : "Not OK", j.status === "ok");
+  } catch {
     setStatus("Unreachable", false);
   }
 };
 
-// Login + launch popup
 document.getElementById("login").onclick = async () => {
-  const name = document.getElementById("name").value.trim();
-  const key = document.getElementById("key").value.trim();
-  if (!name || !key) return setStatus("Fill fields", false);
+  const name = document.getElementById("name").value;
+  const key = document.getElementById("key").value;
 
-  try {
-    const r = await fetch(BACKEND_HTTP + "/validate?name=" + encodeURIComponent(name) + "&key=" + encodeURIComponent(key));
-    const j = await r.json();
-    if (!j.valid) { setStatus("Invalid credentials", false); return; }
-    setStatus("Opening popup...", true);
+  const r = await fetch(API + "/validate?name=" + name + "&key=" + key);
+  const j = await r.json();
 
-    // open popup and inject popup template replacing placeholders
-    const tpl = document.getElementById("popup-tpl").innerHTML;
-    const html = tpl.replace(/{{BASE}}/g, BACKEND_HTTP).replace(/{{USER}}/g, name).replace(/{{WS}}/g, WS_URL);
-    const w = window.open("", "_blank");
-    if (!w) { setStatus("Popup blocked", false); return; }
-    w.document.write(html);
-    w.document.close();
-    setStatus("Popup opened", true);
-  } catch (e) {
-    setStatus("Validation error", false);
-  }
+  if (!j.valid) return setStatus("Invalid login", false);
+
+  const wsURL = API.replace("https://", "wss://") + "/ws";
+  const tpl = document.getElementById("tpl").innerHTML
+    .replace(/{{USER}}/g, name)
+    .replace(/{{WS}}/g, wsURL);
+
+  const w = window.open("", "_blank");
+  if (!w) return alert("Popup blocked");
+  w.document.write(tpl);
+  w.document.close();
+
+  setStatus("Popup opened!", true);
 };
 </script>
 </body>
