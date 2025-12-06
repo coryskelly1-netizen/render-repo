@@ -147,8 +147,8 @@
   <input id="name" placeholder="Your Name" autocomplete="username">
   <input id="key" type="password" placeholder="Your Key" autocomplete="current-password">
 
-  <button class="wake-btn" id="wake">☕ Wake Server</button>
-  <button id="login">🚀 Login & Launch</button>
+  <button class="wake-btn" id="wakeBtn">☕ Wake Server</button>
+  <button id="loginBtn">🚀 Login & Launch</button>
 
   <div id="status" class="status"></div>
   
@@ -159,36 +159,32 @@
 </div>
 
 <script>
-// Your Render.com deployment URL
+// Configuration
 const API = "https://render-repo-osyl.onrender.com";
 
+// Utility functions
 function setStatus(msg, type) {
   const el = document.getElementById("status");
   el.innerHTML = msg;
   el.className = "status show " + type;
 }
 
-function clearStatus() {
-  const el = document.getElementById("status");
-  el.className = "status";
-}
-
-// Wake button handler
-document.getElementById("wake").addEventListener("click", async function() {
-  const btn = document.getElementById("wake");
+// Wake Server Handler
+async function handleWake() {
+  console.log("Wake button clicked!");
+  const btn = document.getElementById("wakeBtn");
   btn.disabled = true;
   setStatus('<span class="spinner"></span>Waking server...', 'info');
   
   try {
-    const r = await fetch(API + "/health", { 
-      method: 'GET'
-    });
+    console.log("Fetching:", API + "/health");
+    const response = await fetch(API + "/health");
+    console.log("Response status:", response.status);
     
-    if (!r.ok) throw new Error("HTTP " + r.status);
+    const data = await response.json();
+    console.log("Response data:", data);
     
-    const j = await r.json();
-    
-    if (j.status === "ok") {
+    if (data.status === "ok") {
       setStatus('✅ Server is ready!', 'success');
     } else {
       setStatus('⚠️ Server responded but status is not OK', 'error');
@@ -196,16 +192,17 @@ document.getElementById("wake").addEventListener("click", async function() {
   } catch (error) {
     console.error('Wake error:', error);
     setStatus("❌ Server unreachable: " + error.message, 'error');
-  } finally {
-    btn.disabled = false;
   }
-});
+  
+  btn.disabled = false;
+}
 
-// Login button handler
-document.getElementById("login").addEventListener("click", async function() {
+// Login Handler
+async function handleLogin() {
+  console.log("Login button clicked!");
   const name = document.getElementById("name").value.trim();
   const key = document.getElementById("key").value.trim();
-  const btn = document.getElementById("login");
+  const btn = document.getElementById("loginBtn");
 
   if (!name || !key) {
     setStatus('❌ Please enter both name and key', 'error');
@@ -216,39 +213,35 @@ document.getElementById("login").addEventListener("click", async function() {
   setStatus('<span class="spinner"></span>Validating credentials...', 'info');
 
   try {
-    const r = await fetch(
-      API + "/validate?name=" + encodeURIComponent(name) + "&key=" + encodeURIComponent(key)
-    );
+    const url = API + "/validate?name=" + encodeURIComponent(name) + "&key=" + encodeURIComponent(key);
+    console.log("Validating:", url);
     
-    if (!r.ok) throw new Error("HTTP " + r.status);
-    
-    const j = await r.json();
+    const response = await fetch(url);
+    const data = await response.json();
+    console.log("Validation result:", data);
 
-    if (!j.valid) {
+    if (!data.valid) {
       setStatus('❌ Invalid credentials', 'error');
       btn.disabled = false;
       return;
     }
 
-    // Generate popup content
+    // Open popup window
     const wsURL = API.replace("https://", "wss://") + "/ws";
-    const popupHTML = generatePopupHTML(name, wsURL);
-
-    // Open popup
-    const w = window.open("", "_blank", "width=1400,height=900");
+    const popup = window.open("", "_blank", "width=1400,height=900");
     
-    if (!w) {
+    if (!popup) {
       setStatus('❌ Popup blocked! Please allow popups for this site.', 'error');
       btn.disabled = false;
       return;
     }
 
-    w.document.write(popupHTML);
-    w.document.close();
+    // Write content to popup
+    popup.document.write(createPopupHTML(name, wsURL));
+    popup.document.close();
 
     setStatus('✅ Browser launched successfully!', 'success');
     
-    // Re-enable button after 3 seconds
     setTimeout(function() {
       btn.disabled = false;
     }, 3000);
@@ -258,331 +251,61 @@ document.getElementById("login").addEventListener("click", async function() {
     setStatus("❌ Connection failed: " + error.message, 'error');
     btn.disabled = false;
   }
-});
+}
 
-// Enter key support
-document.getElementById("key").addEventListener("keypress", function(e) {
-  if (e.key === "Enter") {
-    document.getElementById("login").click();
+// Create popup HTML
+function createPopupHTML(userName, wsURL) {
+  return '<!doctype html><html><head><meta charset="utf-8"><title>Remote Browser</title><style>body{margin:0;background:#0a0a0a;color:#fff;font-family:Arial,sans-serif;overflow:hidden}.toolbar{background:#1a1a1a;padding:10px;display:flex;gap:8px;align-items:center;border-bottom:1px solid #333}.btn{background:#2a2a2a;border:1px solid #444;color:#fff;padding:8px 12px;border-radius:6px;cursor:pointer;font-size:14px;min-width:40px}.btn:hover{background:#3a3a3a}.url-bar{flex:1;padding:8px 16px;background:#1a1a1a;border:1px solid #444;color:#fff;border-radius:20px;font-size:14px;outline:none}.url-bar:focus{border-color:#667eea}.view-container{height:calc(100vh - 60px);display:flex;align-items:center;justify-content:center;background:#000;position:relative}.frame-img{max-width:100%;max-height:100%;object-fit:contain;user-select:none;cursor:pointer}.status-overlay{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(0,0,0,.9);padding:30px;border-radius:12px;text-align:center;min-width:250px}.spinner{border:3px solid rgba(255,255,255,.1);border-left-color:#667eea;border-radius:50%;width:40px;height:40px;animation:spin 1s linear infinite;margin:0 auto 15px}@keyframes spin{to{transform:rotate(360deg)}}.user-badge{background:#667eea;color:#fff;padding:6px 12px;border-radius:12px;font-size:12px;font-weight:600}.error-msg{color:#ff6b6b;padding:10px;background:rgba(255,107,107,.1);border-radius:6px;margin-top:10px;display:none}</style></head><body><div class="toolbar"><button id="back" class="btn">◀</button><button id="forward" class="btn">▶</button><button id="refresh" class="btn">↻</button><input id="url" class="url-bar" placeholder="Enter URL (e.g., example.com)"><button id="go" class="btn" style="background:#667eea">Go</button><span class="user-badge">' + userName + '</span></div><div id="view" class="view-container"><div class="status-overlay"><div class="spinner"></div><div>Connecting to server...</div><div id="error" class="error-msg"></div></div></div><script>(function(){var ws=null;var reconnectAttempts=0;var MAX_RECONNECT=3;function showError(msg){var err=document.getElementById("error");err.textContent=msg;err.style.display="block"}function connect(){ws=new WebSocket("' + wsURL + '");ws.binaryType="arraybuffer";ws.onopen=function(){console.log("WebSocket connected");reconnectAttempts=0;ws.send(JSON.stringify({type:"control",action:"create",userName:"' + userName + '"}))};ws.onmessage=function(e){if(typeof e.data==="string"){try{var j=JSON.parse(e.data);if(j.type==="info"&&j.action==="created"){ws.send(JSON.stringify({type:"control",action:"startStream"}))}if(j.type==="error"){showError("Server error: "+j.message)}}catch(err){console.error("Error parsing message:",err)}return}var blob=new Blob([e.data],{type:"image/jpeg"});var url=URL.createObjectURL(blob);var view=document.getElementById("view");view.innerHTML=\'<img id="frame" class="frame-img" src="\'+url+\'">\';setTimeout(function(){URL.revokeObjectURL(url)},10000);var img=document.getElementById("frame");img.onclick=function(ev){var r=img.getBoundingClientRect();var x=Math.round((ev.clientX-r.left)*(1366/r.width));var y=Math.round((ev.clientY-r.top)*(768/r.height));if(ws&&ws.readyState===WebSocket.OPEN){ws.send(JSON.stringify({type:"control",action:"click",x:x,y:y}))}}};ws.onerror=function(error){console.error("WebSocket error:",error);showError("Connection error occurred")};ws.onclose=function(){console.log("WebSocket closed");if(reconnectAttempts<MAX_RECONNECT){reconnectAttempts++;showError("Connection lost. Reconnecting... ("+reconnectAttempts+"/"+MAX_RECONNECT+")");setTimeout(connect,2000*reconnectAttempts)}else{showError("Failed to connect after multiple attempts. Please refresh.")}}}connect();document.getElementById("go").onclick=function(){var u=document.getElementById("url").value.trim();if(!u)return;if(!/^https?:\\/\\//i.test(u))u="https://"+u;if(ws&&ws.readyState===WebSocket.OPEN){ws.send(JSON.stringify({type:"control",action:"navigate",url:u}))}};document.getElementById("url").addEventListener("keypress",function(e){if(e.key==="Enter"){document.getElementById("go").click()}});document.getElementById("back").onclick=function(){if(ws&&ws.readyState===WebSocket.OPEN){ws.send(JSON.stringify({type:"control",action:"back"}))}};document.getElementById("forward").onclick=function(){if(ws&&ws.readyState===WebSocket.OPEN){ws.send(JSON.stringify({type:"control",action:"forward"}))}};document.getElementById("refresh").onclick=function(){var u=document.getElementById("url").value.trim();if(u&&ws&&ws.readyState===WebSocket.OPEN){ws.send(JSON.stringify({type:"control",action:"navigate",url:u}))}};document.getElementById("view").addEventListener("wheel",function(ev){ev.preventDefault();if(ws&&ws.readyState===WebSocket.OPEN){ws.send(JSON.stringify({type:"control",action:"scroll",dx:0,dy:Math.round(ev.deltaY)}))}},{passive:false});document.addEventListener("keydown",function(e){if(document.activeElement.id==="url")return;if(ws&&ws.readyState===WebSocket.OPEN){ws.send(JSON.stringify({type:"control",action:"type",text:e.key}))}});window.addEventListener("beforeunload",function(){if(ws&&ws.readyState===WebSocket.OPEN){ws.send(JSON.stringify({type:"control",action:"close"}));ws.close()}})})();<\/script></body></html>';
+}
+
+// Attach event listeners when DOM is ready
+document.addEventListener('DOMContentLoaded', function() {
+  console.log("DOM loaded, attaching event listeners...");
+  
+  const wakeBtn = document.getElementById("wakeBtn");
+  const loginBtn = document.getElementById("loginBtn");
+  const keyInput = document.getElementById("key");
+  
+  if (wakeBtn) {
+    wakeBtn.onclick = handleWake;
+    console.log("Wake button listener attached");
+  } else {
+    console.error("Wake button not found!");
+  }
+  
+  if (loginBtn) {
+    loginBtn.onclick = handleLogin;
+    console.log("Login button listener attached");
+  } else {
+    console.error("Login button not found!");
+  }
+  
+  if (keyInput) {
+    keyInput.addEventListener("keypress", function(e) {
+      if (e.key === "Enter") {
+        handleLogin();
+      }
+    });
+    console.log("Enter key listener attached");
   }
 });
 
-function generatePopupHTML(userName, wsURL) {
-  return '<!doctype html>\n\
-<html>\n\
-<head>\n\
-<meta charset="utf-8">\n\
-<meta name="viewport" content="width=device-width,initial-scale=1">\n\
-<title>Remote Browser - ' + userName + '</title>\n\
-<style>\n\
- body { \n\
-   margin: 0;\n\
-   background: #0a0a0a;\n\
-   color: #fff;\n\
-   font-family: "Segoe UI", Tahoma, sans-serif;\n\
-   overflow: hidden;\n\
- }\n\
- \n\
- .toolbar { \n\
-   background: linear-gradient(180deg, #1a1a1a 0%, #111 100%);\n\
-   padding: 10px;\n\
-   display: flex;\n\
-   gap: 8px;\n\
-   align-items: center;\n\
-   border-bottom: 1px solid #333;\n\
-   box-shadow: 0 2px 10px rgba(0,0,0,0.5);\n\
- }\n\
- \n\
- .btn { \n\
-   background: #2a2a2a;\n\
-   border: 1px solid #444;\n\
-   color: #fff;\n\
-   padding: 8px 12px;\n\
-   border-radius: 6px;\n\
-   cursor: pointer;\n\
-   font-size: 14px;\n\
-   transition: all 0.2s;\n\
-   min-width: 40px;\n\
- }\n\
- \n\
- .btn:hover {\n\
-   background: #3a3a3a;\n\
-   border-color: #555;\n\
- }\n\
- \n\
- .btn:active {\n\
-   transform: scale(0.95);\n\
- }\n\
- \n\
- .url-bar { \n\
-   flex: 1;\n\
-   padding: 8px 16px;\n\
-   background: #1a1a1a;\n\
-   border: 1px solid #444;\n\
-   color: #fff;\n\
-   border-radius: 20px;\n\
-   font-size: 14px;\n\
-   outline: none;\n\
-   transition: all 0.2s;\n\
- }\n\
- \n\
- .url-bar:focus {\n\
-   border-color: #667eea;\n\
-   background: #222;\n\
- }\n\
- \n\
- .view-container { \n\
-   height: calc(100vh - 60px);\n\
-   display: flex;\n\
-   align-items: center;\n\
-   justify-content: center;\n\
-   background: #000;\n\
-   position: relative;\n\
- }\n\
- \n\
- .frame-img { \n\
-   max-width: 100%;\n\
-   max-height: 100%;\n\
-   object-fit: contain;\n\
-   user-select: none;\n\
-   cursor: pointer;\n\
-   box-shadow: 0 0 30px rgba(0,0,0,0.8);\n\
- }\n\
- \n\
- .status-overlay {\n\
-   position: absolute;\n\
-   top: 50%;\n\
-   left: 50%;\n\
-   transform: translate(-50%, -50%);\n\
-   background: rgba(0,0,0,0.9);\n\
-   padding: 30px;\n\
-   border-radius: 12px;\n\
-   text-align: center;\n\
-   min-width: 250px;\n\
- }\n\
- \n\
- .spinner {\n\
-   border: 3px solid rgba(255,255,255,.1);\n\
-   border-left-color: #667eea;\n\
-   border-radius: 50%;\n\
-   width: 40px;\n\
-   height: 40px;\n\
-   animation: spin 1s linear infinite;\n\
-   margin: 0 auto 15px;\n\
- }\n\
- \n\
- @keyframes spin {\n\
-   to { transform: rotate(360deg); }\n\
- }\n\
- \n\
- .user-badge {\n\
-   background: #667eea;\n\
-   color: #fff;\n\
-   padding: 6px 12px;\n\
-   border-radius: 12px;\n\
-   font-size: 12px;\n\
-   font-weight: 600;\n\
- }\n\
- \n\
- .error-msg {\n\
-   color: #ff6b6b;\n\
-   padding: 10px;\n\
-   background: rgba(255,107,107,0.1);\n\
-   border-radius: 6px;\n\
-   margin-top: 10px;\n\
- }\n\
-</style>\n\
-</head>\n\
-<body>\n\
-\n\
-<div class="toolbar">\n\
-  <button id="back" class="btn" title="Back">◀</button>\n\
-  <button id="forward" class="btn" title="Forward">▶</button>\n\
-  <button id="refresh" class="btn" title="Refresh">↻</button>\n\
-  <input id="url" class="url-bar" placeholder="Enter URL (e.g., example.com)">\n\
-  <button id="go" class="btn" style="background:#667eea">Go</button>\n\
-  <span class="user-badge">' + userName + '</span>\n\
-</div>\n\
-\n\
-<div id="view" class="view-container">\n\
-  <div class="status-overlay">\n\
-    <div class="spinner"></div>\n\
-    <div>Connecting to server...</div>\n\
-    <div id="error" class="error-msg" style="display:none"></div>\n\
-  </div>\n\
-</div>\n\
-\n\
-<script>\n\
-(function() {\n\
-  var ws = null;\n\
-  var reconnectAttempts = 0;\n\
-  var MAX_RECONNECT = 3;\n\
-  \n\
-  function showError(msg) {\n\
-    var err = document.getElementById("error");\n\
-    err.textContent = msg;\n\
-    err.style.display = "block";\n\
-  }\n\
-  \n\
-  function connect() {\n\
-    ws = new WebSocket("' + wsURL + '");\n\
-    ws.binaryType = "arraybuffer";\n\
-\n\
-    ws.onopen = function() {\n\
-      console.log("WebSocket connected");\n\
-      reconnectAttempts = 0;\n\
-      ws.send(JSON.stringify({ \n\
-        type: "control",\n\
-        action: "create",\n\
-        userName: "' + userName + '"\n\
-      }));\n\
-    };\n\
-\n\
-    ws.onmessage = function(e) {\n\
-      if (typeof e.data === "string") {\n\
-        try {\n\
-          var j = JSON.parse(e.data);\n\
-          \n\
-          if (j.type === "info" && j.action === "created") {\n\
-            ws.send(JSON.stringify({ \n\
-              type: "control",\n\
-              action: "startStream"\n\
-            }));\n\
-          }\n\
-          \n\
-          if (j.type === "error") {\n\
-            showError("Server error: " + j.message);\n\
-          }\n\
-        } catch (err) {\n\
-          console.error("Error parsing message:", err);\n\
-        }\n\
-        return;\n\
-      }\n\
-\n\
-      var blob = new Blob([e.data], { type: "image/jpeg" });\n\
-      var url = URL.createObjectURL(blob);\n\
-\n\
-      var view = document.getElementById("view");\n\
-      view.innerHTML = "<img id=\\"frame\\" class=\\"frame-img\\" src=\\"" + url + "\\">";\n\
-\n\
-      setTimeout(function() { URL.revokeObjectURL(url); }, 10000);\n\
-\n\
-      var img = document.getElementById("frame");\n\
-      img.onclick = function(ev) {\n\
-        var r = img.getBoundingClientRect();\n\
-        var x = Math.round((ev.clientX - r.left) * (1366 / r.width));\n\
-        var y = Math.round((ev.clientY - r.top) * (768 / r.height));\n\
-        \n\
-        if (ws && ws.readyState === WebSocket.OPEN) {\n\
-          ws.send(JSON.stringify({ \n\
-            type: "control",\n\
-            action: "click",\n\
-            x: x,\n\
-            y: y\n\
-          }));\n\
-        }\n\
-      };\n\
-    };\n\
-\n\
-    ws.onerror = function(error) {\n\
-      console.error("WebSocket error:", error);\n\
-      showError("Connection error occurred");\n\
-    };\n\
-\n\
-    ws.onclose = function() {\n\
-      console.log("WebSocket closed");\n\
-      \n\
-      if (reconnectAttempts < MAX_RECONNECT) {\n\
-        reconnectAttempts++;\n\
-        showError("Connection lost. Reconnecting... (" + reconnectAttempts + "/" + MAX_RECONNECT + ")");\n\
-        setTimeout(connect, 2000 * reconnectAttempts);\n\
-      } else {\n\
-        showError("Failed to connect after multiple attempts. Please refresh.");\n\
-      }\n\
-    };\n\
-  }\n\
-\n\
-  connect();\n\
-\n\
-  document.getElementById("go").onclick = function() {\n\
-    var u = document.getElementById("url").value.trim();\n\
-    if (!u) return;\n\
-    if (!/^https?:\\/\\//i.test(u)) u = "https://" + u;\n\
-    \n\
-    if (ws && ws.readyState === WebSocket.OPEN) {\n\
-      ws.send(JSON.stringify({ \n\
-        type: "control",\n\
-        action: "navigate",\n\
-        url: u\n\
-      }));\n\
-    }\n\
-  };\n\
-\n\
-  document.getElementById("url").addEventListener("keypress", function(e) {\n\
-    if (e.key === "Enter") {\n\
-      document.getElementById("go").click();\n\
-    }\n\
-  });\n\
-\n\
-  document.getElementById("back").onclick = function() {\n\
-    if (ws && ws.readyState === WebSocket.OPEN) {\n\
-      ws.send(JSON.stringify({ type: "control", action: "back" }));\n\
-    }\n\
-  };\n\
-\n\
-  document.getElementById("forward").onclick = function() {\n\
-    if (ws && ws.readyState === WebSocket.OPEN) {\n\
-      ws.send(JSON.stringify({ type: "control", action: "forward" }));\n\
-    }\n\
-  };\n\
-\n\
-  document.getElementById("refresh").onclick = function() {\n\
-    var u = document.getElementById("url").value.trim();\n\
-    if (u && ws && ws.readyState === WebSocket.OPEN) {\n\
-      ws.send(JSON.stringify({ \n\
-        type: "control",\n\
-        action: "navigate",\n\
-        url: u\n\
-      }));\n\
-    }\n\
-  };\n\
-\n\
-  document.getElementById("view").addEventListener("wheel", function(ev) {\n\
-    ev.preventDefault();\n\
-    if (ws && ws.readyState === WebSocket.OPEN) {\n\
-      ws.send(JSON.stringify({\n\
-        type: "control",\n\
-        action: "scroll",\n\
-        dx: 0,\n\
-        dy: Math.round(ev.deltaY)\n\
-      }));\n\
-    }\n\
-  }, { passive: false });\n\
-\n\
-  document.addEventListener("keydown", function(e) {\n\
-    if (document.activeElement.id === "url") return;\n\
-    \n\
-    if (ws && ws.readyState === WebSocket.OPEN) {\n\
-      ws.send(JSON.stringify({\n\
-        type: "control",\n\
-        action: "type",\n\
-        text: e.key\n\
-      }));\n\
-    }\n\
-  });\n\
-\n\
-  window.addEventListener("beforeunload", function() {\n\
-    if (ws && ws.readyState === WebSocket.OPEN) {\n\
-      ws.send(JSON.stringify({ type: "control", action: "close" }));\n\
-      ws.close();\n\
-    }\n\
-  });\n\
-})();\n\
-</script>\n\
-\n\
-</body>\n\
-</html>';
-}
+// Fallback: Also attach after a short delay
+setTimeout(function() {
+  const wakeBtn = document.getElementById("wakeBtn");
+  if (wakeBtn && !wakeBtn.onclick) {
+    console.log("Fallback: Attaching wake button listener");
+    wakeBtn.onclick = handleWake;
+  }
+  
+  const loginBtn = document.getElementById("loginBtn");
+  if (loginBtn && !loginBtn.onclick) {
+    console.log("Fallback: Attaching login button listener");
+    loginBtn.onclick = handleLogin;
+  }
+}, 100);
+
+console.log("Script loaded successfully");
 </script>
 
 </body>
