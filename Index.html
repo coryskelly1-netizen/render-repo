@@ -5,149 +5,117 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Remote Browser Proxy</title>
 <style>
-  body { 
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    margin: 0;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: #fff;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    min-height: 100vh;
-    padding: 20px;
-  }
-  
-  .card { 
-    background: #fff;
-    color: #333;
-    padding: 35px;
-    max-width: 380px;
-    width: 100%;
-    border-radius: 16px;
-    box-shadow: 0 20px 60px rgba(0,0,0,.3);
-  }
-  
-  h2 { margin: 0 0 20px 0; font-size: 24px; text-align: center; }
-  input { width: 100%; padding: 12px; margin-top: 10px; border-radius: 8px; border: 2px solid #e0e0e0; font-size: 14px; transition: border-color .3s; }
-  input:focus { outline: none; border-color: #667eea; }
-
-  button { width: 100%; margin-top: 12px; padding: 14px; border-radius: 8px; border: 0; cursor: pointer; background: #667eea; color: #fff; font-weight: 700; font-size: 14px; transition: all .3s; }
-  button:hover { background: #5568d3; transform: translateY(-2px); box-shadow: 0 5px 15px rgba(102, 126, 234, .4); }
-  button:disabled { background: #ccc; cursor: not-allowed; transform: none; }
-
-  .wake-btn { background: #ffd34d; color: #000; }
-  .wake-btn:hover { background: #ffc61a; }
-
-  .status { margin-top: 15px; padding: 12px; border-radius: 8px; display: none; font-size: 14px; text-align: center; }
-  .status.show { display: block; }
-  .status.success { background: #e6ffe8; color: #056632; border: 1px solid #b3f0b8; }
-  .status.error { background: #ffe8e8; color: #7b1f1f; border: 1px solid #ffb3b3; }
-  .status.info { background: #e8f4ff; color: #0d4a7a; border: 1px solid #b3d9ff; }
-
-  .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(0,0,0,.1); border-left-color: currentColor; border-radius: 50%; animation: spin .8s linear infinite; margin-right: 8px; }
-  @keyframes spin { to { transform: rotate(360deg); } }
+  body { font-family: 'Segoe UI', Tahoma, sans-serif; margin:0; background:linear-gradient(135deg,#667eea,#764ba2); color:#fff; display:flex; align-items:center; justify-content:center; min-height:100vh; padding:20px; }
+  .card { background:#fff;color:#222;padding:28px;border-radius:12px;max-width:420px;width:100%;box-shadow:0 18px 50px rgba(0,0,0,.25); }
+  h2{margin:0 0 12px 0;text-align:center}
+  input{width:100%;padding:12px;border-radius:8px;border:1px solid #ddd;margin-top:10px}
+  button{width:100%;padding:12px;border-radius:8px;border:0;background:#4a5de6;color:#fff;margin-top:12px;cursor:pointer;font-weight:700}
+  .wake{background:#ffd34d;color:#000}
+  .status{margin-top:12px;padding:10px;border-radius:8px;display:none}
+  .status.show{display:block}
+  .info{font-size:12px;color:#666;margin-top:12px;background:#f5f5f5;padding:10px;border-radius:8px;color:#333}
 </style>
 </head>
 <body>
-
 <div class="card">
   <h2>🌐 Remote Browser</h2>
-
-  <input id="name" placeholder="Your Name">
-  <input id="key" type="password" placeholder="Your Key">
-
-  <button class="wake-btn" id="wakeBtn">☕ Wake Server</button>
+  <input id="name" placeholder="Your name">
+  <input id="key" placeholder="Access key" type="password">
+  <button id="wakeBtn" class="wake">☕ Wake Server</button>
   <button id="loginBtn">🚀 Login & Launch</button>
-
   <div id="status" class="status"></div>
+  <div class="info">Streams a remote Chromium session. Use responsibly.</div>
 </div>
 
 <script>
-// REAL API URL
-const API = "https://render-repo-1-yto6.onrender.com";
+const API = "https://render-repo-1-yto6.onrender.com"; // <-- set to your Render public URL
 
-// Show messages
 function setStatus(msg, type) {
   const el = document.getElementById("status");
   el.innerHTML = msg;
-  el.className = "status show " + type;
+  el.className = "status show " + (type||"");
 }
 
-// Wake server
-async function handleWake() {
-  setStatus('<span class="spinner"></span>Waking...', 'info');
+document.getElementById("wakeBtn").addEventListener("click", async () => {
+  setStatus("Waking server...", "info");
   try {
-    const res = await fetch(API + "/health");
-    const j = await res.json();
-    if (j.status === "ok") setStatus("✅ Server ready!", "success");
-    else setStatus("⚠️ Server responded but not OK", "error");
+    const r = await fetch(API + "/health");
+    const j = await r.json();
+    if (j.status === "ok") setStatus("Server ready", "success");
+    else setStatus("Server responded but not OK", "error");
   } catch (e) {
-    setStatus("❌ " + e.message, "error");
+    setStatus("Server unreachable: " + e.message, "error");
   }
-}
+});
 
-// Login
-async function handleLogin() {
-  const name = nameInput.value.trim();
-  const key = keyInput.value.trim();
+document.getElementById("loginBtn").addEventListener("click", async () => {
+  const name = document.getElementById("name").value.trim();
+  const key = document.getElementById("key").value.trim();
+  if (!name || !key) { setStatus("Enter name and key", "error"); return; }
 
-  if (!name || !key) {
-    setStatus("❌ Missing name or key", "error");
-    return;
-  }
-
-  setStatus('<span class="spinner"></span>Checking...', "info");
-
+  setStatus("Validating...", "info");
   try {
-    const res = await fetch(API + "/validate?name=" + encodeURIComponent(name) + "&key=" + encodeURIComponent(key));
-    const j = await res.json();
+    const r = await fetch(API + "/validate?name=" + encodeURIComponent(name) + "&key=" + encodeURIComponent(key));
+    const j = await r.json();
+    if (!j.valid) { setStatus("Invalid credentials", "error"); return; }
 
-    if (!j.valid) return setStatus("❌ Invalid credentials", "error");
+    // compute ws URL (wss)
+    const wsURL = API.replace(/^http/, "ws") + "/ws";
 
-    const wsURL = API.replace("https://", "wss://") + "/ws";
+    const popup = window.open("", "_blank", "width=1366,height=768");
+    if (!popup) { setStatus("Popup blocked — allow popups", "error"); return; }
 
-    const popup = window.open("", "_blank", "width=1400,height=900");
-
+    // write popup UI (simple)
     popup.document.write(`
-      <html><body style="margin:0;background:black;color:white;display:flex;align-items:center;justify-content:center;font-family:Arial">
-      <div id="msg">Connecting to server...</div>
+      <!doctype html>
+      <html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+      <title>Remote Browser</title>
+      <style>body{margin:0;background:#000;color:#fff;font-family:Segoe UI,Arial;overflow:hidden} .bar{background:#111;padding:8px;display:flex;gap:8px;align-items:center} .url{flex:1;padding:8px;border-radius:999px;border:1px solid #333;background:#0d0d0d;color:#fff} .view{height:calc(100vh - 48px);display:flex;align-items:center;justify-content:center} img{max-width:100%;max-height:100%;object-fit:contain}</style>
+      </head><body>
+      <div class="bar"><input id="url" class="url" placeholder="example.com"><button id="go">Go</button></div>
+      <div id="view" class="view">Connecting...</div>
       <script>
-      const ws = new WebSocket("${wsURL}");
-      ws.binaryType = "arraybuffer";
-
-      ws.onopen = () => { 
-        document.getElementById("msg").innerText = "Connected! Launching..."; 
-        ws.send(JSON.stringify({type:"control", action:"create", userName:"${name}"}));
-      };
-
-      ws.onmessage = (e) => {
-        if (typeof e.data === "string") {
-          const j = JSON.parse(e.data);
-          if (j.type === "info" && j.action === "created") {
-            ws.send(JSON.stringify({type:"control", action:"startStream"}));
-            document.getElementById("msg").innerText = "Streaming...";
-          }
+        const WS = "${wsURL}";
+        let ws = null;
+        function showMsg(t){ document.getElementById('view').innerHTML = '<div style="color:#ddd">'+t+'</div>' }
+        function connect() {
+          ws = new WebSocket(WS); ws.binaryType = 'arraybuffer';
+          ws.onopen = ()=>{ showMsg('Connected — creating session...'); ws.send(JSON.stringify({type:'control', action:'create', userName:'${name}'})); };
+          ws.onmessage = (e)=> {
+            if (typeof e.data === 'string') {
+              try { const j = JSON.parse(e.data); if (j.type==='info' && j.action==='created') { ws.send(JSON.stringify({type:'control', action:'startStream'})); showMsg('Streaming...'); } if (j.type==='error') { showMsg('Server error: '+j.message); } } catch {}
+              return;
+            }
+            const blob = new Blob([e.data], { type: 'image/jpeg' });
+            const url = URL.createObjectURL(blob);
+            document.getElementById('view').innerHTML = '<img id=\"frame\" src=\"'+url+'\">';
+            setTimeout(()=>URL.revokeObjectURL(url), 10000);
+            const img = document.getElementById('frame');
+            img.onclick = (ev)=> {
+              const r = img.getBoundingClientRect();
+              const x = Math.round((ev.clientX - r.left) * (1366 / r.width));
+              const y = Math.round((ev.clientY - r.top) * (768 / r.height));
+              if (ws && ws.readyState===WebSocket.OPEN) ws.send(JSON.stringify({type:'control', action:'click', x, y}));
+            };
+          };
+          ws.onerror = (e) => showMsg('Connection error');
+          ws.onclose = ()=> showMsg('Disconnected');
         }
-      };
+        connect();
+        document.getElementById('go').onclick = ()=> {
+          const u = document.getElementById('url').value.trim();
+          if (!u) return;
+          if (ws && ws.readyState===WebSocket.OPEN) ws.send(JSON.stringify({type:'control', action:'navigate', url: u}));
+        };
       <\/script>
       </body></html>
     `);
-
-    setStatus("✅ Remote browser launched!", "success");
-
+    popup.document.close();
+    setStatus("Popup opened", "success");
   } catch (e) {
-    setStatus("❌ " + e.message, "error");
+    setStatus("Connection failed: " + e.message, "error");
   }
-}
-
-// buttons
-const nameInput = document.getElementById("name");
-const keyInput = document.getElementById("key");
-
-document.getElementById("wakeBtn").onclick = handleWake;
-document.getElementById("loginBtn").onclick = handleLogin;
-
+});
 </script>
-
 </body>
 </html>
