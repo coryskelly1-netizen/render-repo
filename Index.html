@@ -27,116 +27,25 @@
     box-shadow: 0 20px 60px rgba(0,0,0,.3);
   }
   
-  h2 {
-    margin: 0 0 20px 0;
-    font-size: 24px;
-    text-align: center;
-  }
-  
-  input { 
-    width: 100%;
-    padding: 12px;
-    margin-top: 10px;
-    border-radius: 8px;
-    border: 2px solid #e0e0e0;
-    font-size: 14px;
-    transition: border-color 0.3s;
-    box-sizing: border-box;
-  }
-  
-  input:focus {
-    outline: none;
-    border-color: #667eea;
-  }
-  
-  button { 
-    width: 100%;
-    margin-top: 12px;
-    padding: 14px;
-    border-radius: 8px;
-    border: 0;
-    cursor: pointer;
-    background: #667eea;
-    color: #fff;
-    font-weight: 700;
-    font-size: 14px;
-    transition: all 0.3s;
-  }
-  
-  button:hover {
-    background: #5568d3;
-    transform: translateY(-2px);
-    box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
-  }
-  
-  button:disabled {
-    background: #ccc;
-    cursor: not-allowed;
-    transform: none;
-  }
-  
-  .wake-btn { 
-    background: #ffd34d;
-    color: #000;
-  }
-  
-  .wake-btn:hover {
-    background: #ffc61a;
-  }
-  
-  .status { 
-    margin-top: 15px;
-    padding: 12px;
-    border-radius: 8px;
-    display: none;
-    font-size: 14px;
-    text-align: center;
-  }
-  
+  h2 { margin: 0 0 20px 0; font-size: 24px; text-align: center; }
+  input { width: 100%; padding: 12px; margin-top: 10px; border-radius: 8px; border: 2px solid #e0e0e0; font-size: 14px; transition: border-color .3s; }
+  input:focus { outline: none; border-color: #667eea; }
+
+  button { width: 100%; margin-top: 12px; padding: 14px; border-radius: 8px; border: 0; cursor: pointer; background: #667eea; color: #fff; font-weight: 700; font-size: 14px; transition: all .3s; }
+  button:hover { background: #5568d3; transform: translateY(-2px); box-shadow: 0 5px 15px rgba(102, 126, 234, .4); }
+  button:disabled { background: #ccc; cursor: not-allowed; transform: none; }
+
+  .wake-btn { background: #ffd34d; color: #000; }
+  .wake-btn:hover { background: #ffc61a; }
+
+  .status { margin-top: 15px; padding: 12px; border-radius: 8px; display: none; font-size: 14px; text-align: center; }
   .status.show { display: block; }
-  
-  .status.success { 
-    background: #e6ffe8;
-    color: #056632;
-    border: 1px solid #b3f0b8;
-  }
-  
-  .status.error { 
-    background: #ffe8e8;
-    color: #7b1f1f;
-    border: 1px solid #ffb3b3;
-  }
-  
-  .status.info {
-    background: #e8f4ff;
-    color: #0d4a7a;
-    border: 1px solid #b3d9ff;
-  }
-  
-  .info-text {
-    margin-top: 20px;
-    padding: 15px;
-    background: #f5f5f5;
-    border-radius: 8px;
-    font-size: 12px;
-    color: #666;
-  }
-  
-  .spinner {
-    display: inline-block;
-    width: 14px;
-    height: 14px;
-    border: 2px solid rgba(0,0,0,.1);
-    border-left-color: currentColor;
-    border-radius: 50%;
-    animation: spin 0.8s linear infinite;
-    margin-right: 8px;
-    vertical-align: middle;
-  }
-  
-  @keyframes spin {
-    to { transform: rotate(360deg); }
-  }
+  .status.success { background: #e6ffe8; color: #056632; border: 1px solid #b3f0b8; }
+  .status.error { background: #ffe8e8; color: #7b1f1f; border: 1px solid #ffb3b3; }
+  .status.info { background: #e8f4ff; color: #0d4a7a; border: 1px solid #b3d9ff; }
+
+  .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(0,0,0,.1); border-left-color: currentColor; border-radius: 50%; animation: spin .8s linear infinite; margin-right: 8px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
 </style>
 </head>
 <body>
@@ -144,168 +53,100 @@
 <div class="card">
   <h2>🌐 Remote Browser</h2>
 
-  <input id="name" placeholder="Your Name" autocomplete="username">
-  <input id="key" type="password" placeholder="Your Key" autocomplete="current-password">
+  <input id="name" placeholder="Your Name">
+  <input id="key" type="password" placeholder="Your Key">
 
   <button class="wake-btn" id="wakeBtn">☕ Wake Server</button>
   <button id="loginBtn">🚀 Login & Launch</button>
 
   <div id="status" class="status"></div>
-  
-  <div class="info-text">
-    <strong>Educational Project</strong><br>
-    This proxy streams a remote browser via WebSocket. Use responsibly and in accordance with your institution's policies.
-  </div>
 </div>
 
 <script>
-// Configuration
+// REAL API URL
 const API = "https://render-repo-1-yto6.onrender.com";
 
-// Utility functions
+// Show messages
 function setStatus(msg, type) {
   const el = document.getElementById("status");
   el.innerHTML = msg;
   el.className = "status show " + type;
 }
 
-// Wake Server Handler
+// Wake server
 async function handleWake() {
-  console.log("Wake button clicked!");
-  const btn = document.getElementById("wakeBtn");
-  btn.disabled = true;
-  setStatus('<span class="spinner"></span>Waking server...', 'info');
-  
+  setStatus('<span class="spinner"></span>Waking...', 'info');
   try {
-    console.log("Fetching:", API + "/health");
-    const response = await fetch(API + "/health");
-    console.log("Response status:", response.status);
-    
-    const data = await response.json();
-    console.log("Response data:", data);
-    
-    if (data.status === "ok") {
-      setStatus('✅ Server is ready!', 'success');
-    } else {
-      setStatus('⚠️ Server responded but status is not OK', 'error');
-    }
-  } catch (error) {
-    console.error('Wake error:', error);
-    setStatus("❌ Server unreachable: " + error.message, 'error');
+    const res = await fetch(API + "/health");
+    const j = await res.json();
+    if (j.status === "ok") setStatus("✅ Server ready!", "success");
+    else setStatus("⚠️ Server responded but not OK", "error");
+  } catch (e) {
+    setStatus("❌ " + e.message, "error");
   }
-  
-  btn.disabled = false;
 }
 
-// Login Handler
+// Login
 async function handleLogin() {
-  console.log("Login button clicked!");
-  const name = document.getElementById("name").value.trim();
-  const key = document.getElementById("key").value.trim();
-  const btn = document.getElementById("loginBtn");
+  const name = nameInput.value.trim();
+  const key = keyInput.value.trim();
 
   if (!name || !key) {
-    setStatus('❌ Please enter both name and key', 'error');
+    setStatus("❌ Missing name or key", "error");
     return;
   }
 
-  btn.disabled = true;
-  setStatus('<span class="spinner"></span>Validating credentials...', 'info');
+  setStatus('<span class="spinner"></span>Checking...', "info");
 
   try {
-    const url = API + "/validate?name=" + encodeURIComponent(name) + "&key=" + encodeURIComponent(key);
-    console.log("Validating:", url);
-    
-    const response = await fetch(url);
-    const data = await response.json();
-    console.log("Validation result:", data);
+    const res = await fetch(API + "/validate?name=" + encodeURIComponent(name) + "&key=" + encodeURIComponent(key));
+    const j = await res.json();
 
-    if (!data.valid) {
-      setStatus('❌ Invalid credentials', 'error');
-      btn.disabled = false;
-      return;
-    }
+    if (!j.valid) return setStatus("❌ Invalid credentials", "error");
 
-    // Open popup window
     const wsURL = API.replace("https://", "wss://") + "/ws";
+
     const popup = window.open("", "_blank", "width=1400,height=900");
-    
-    if (!popup) {
-      setStatus('❌ Popup blocked! Please allow popups for this site.', 'error');
-      btn.disabled = false;
-      return;
-    }
 
-    // Write content to popup
-    popup.document.write(createPopupHTML(name, wsURL));
-    popup.document.close();
+    popup.document.write(`
+      <html><body style="margin:0;background:black;color:white;display:flex;align-items:center;justify-content:center;font-family:Arial">
+      <div id="msg">Connecting to server...</div>
+      <script>
+      const ws = new WebSocket("${wsURL}");
+      ws.binaryType = "arraybuffer";
 
-    setStatus('✅ Browser launched successfully!', 'success');
-    
-    setTimeout(function() {
-      btn.disabled = false;
-    }, 3000);
+      ws.onopen = () => { 
+        document.getElementById("msg").innerText = "Connected! Launching..."; 
+        ws.send(JSON.stringify({type:"control", action:"create", userName:"${name}"}));
+      };
 
-  } catch (error) {
-    console.error('Login error:', error);
-    setStatus("❌ Connection failed: " + error.message, 'error');
-    btn.disabled = false;
+      ws.onmessage = (e) => {
+        if (typeof e.data === "string") {
+          const j = JSON.parse(e.data);
+          if (j.type === "info" && j.action === "created") {
+            ws.send(JSON.stringify({type:"control", action:"startStream"}));
+            document.getElementById("msg").innerText = "Streaming...";
+          }
+        }
+      };
+      <\/script>
+      </body></html>
+    `);
+
+    setStatus("✅ Remote browser launched!", "success");
+
+  } catch (e) {
+    setStatus("❌ " + e.message, "error");
   }
 }
 
-// Create popup HTML
-function createPopupHTML(userName, wsURL) {
-  return '<!doctype html><html><head><meta charset="utf-8"><title>Remote Browser</title><style>body{margin:0;background:#0a0a0a;color:#fff;font-family:Arial,sans-serif;overflow:hidden}.toolbar{background:#1a1a1a;padding:10px;display:flex;gap:8px;align-items:center;border-bottom:1px solid #333}.btn{background:#2a2a2a;border:1px solid #444;color:#fff;padding:8px 12px;border-radius:6px;cursor:pointer;font-size:14px;min-width:40px}.btn:hover{background:#3a3a3a}.url-bar{flex:1;padding:8px 16px;background:#1a1a1a;border:1px solid #444;color:#fff;border-radius:20px;font-size:14px;outline:none}.url-bar:focus{border-color:#667eea}.view-container{height:calc(100vh - 60px);display:flex;align-items:center;justify-content:center;background:#000;position:relative}.frame-img{max-width:100%;max-height:100%;object-fit:contain;user-select:none;cursor:pointer}.status-overlay{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(0,0,0,.9);padding:30px;border-radius:12px;text-align:center;min-width:250px}.spinner{border:3px solid rgba(255,255,255,.1);border-left-color:#667eea;border-radius:50%;width:40px;height:40px;animation:spin 1s linear infinite;margin:0 auto 15px}@keyframes spin{to{transform:rotate(360deg)}}.user-badge{background:#667eea;color:#fff;padding:6px 12px;border-radius:12px;font-size:12px;font-weight:600}.error-msg{color:#ff6b6b;padding:10px;background:rgba(255,107,107,.1);border-radius:6px;margin-top:10px;display:none}</style></head><body><div class="toolbar"><button id="back" class="btn">◀</button><button id="forward" class="btn">▶</button><button id="refresh" class="btn">↻</button><input id="url" class="url-bar" placeholder="Enter URL (e.g., example.com)"><button id="go" class="btn" style="background:#667eea">Go</button><span class="user-badge">' + userName + '</span></div><div id="view" class="view-container"><div class="status-overlay"><div class="spinner"></div><div>Connecting to server...</div><div id="error" class="error-msg"></div></div></div><script>(function(){var ws=null;var reconnectAttempts=0;var MAX_RECONNECT=3;function showError(msg){var err=document.getElementById("error");err.textContent=msg;err.style.display="block"}function connect(){ws=new WebSocket("' + wsURL + '");ws.binaryType="arraybuffer";ws.onopen=function(){console.log("WebSocket connected");reconnectAttempts=0;ws.send(JSON.stringify({type:"control",action:"create",userName:"' + userName + '"}))};ws.onmessage=function(e){if(typeof e.data==="string"){try{var j=JSON.parse(e.data);if(j.type==="info"&&j.action==="created"){ws.send(JSON.stringify({type:"control",action:"startStream"}))}if(j.type==="error"){showError("Server error: "+j.message)}}catch(err){console.error("Error parsing message:",err)}return}var blob=new Blob([e.data],{type:"image/jpeg"});var url=URL.createObjectURL(blob);var view=document.getElementById("view");view.innerHTML=\'<img id="frame" class="frame-img" src="\'+url+\'">\';setTimeout(function(){URL.revokeObjectURL(url)},10000);var img=document.getElementById("frame");img.onclick=function(ev){var r=img.getBoundingClientRect();var x=Math.round((ev.clientX-r.left)*(1366/r.width));var y=Math.round((ev.clientY-r.top)*(768/r.height));if(ws&&ws.readyState===WebSocket.OPEN){ws.send(JSON.stringify({type:"control",action:"click",x:x,y:y}))}}};ws.onerror=function(error){console.error("WebSocket error:",error);showError("Connection error occurred")};ws.onclose=function(){console.log("WebSocket closed");if(reconnectAttempts<MAX_RECONNECT){reconnectAttempts++;showError("Connection lost. Reconnecting... ("+reconnectAttempts+"/"+MAX_RECONNECT+")");setTimeout(connect,2000*reconnectAttempts)}else{showError("Failed to connect after multiple attempts. Please refresh.")}}}connect();document.getElementById("go").onclick=function(){var u=document.getElementById("url").value.trim();if(!u)return;if(!/^https?:\\/\\//i.test(u))u="https://"+u;if(ws&&ws.readyState===WebSocket.OPEN){ws.send(JSON.stringify({type:"control",action:"navigate",url:u}))}};document.getElementById("url").addEventListener("keypress",function(e){if(e.key==="Enter"){document.getElementById("go").click()}});document.getElementById("back").onclick=function(){if(ws&&ws.readyState===WebSocket.OPEN){ws.send(JSON.stringify({type:"control",action:"back"}))}};document.getElementById("forward").onclick=function(){if(ws&&ws.readyState===WebSocket.OPEN){ws.send(JSON.stringify({type:"control",action:"forward"}))}};document.getElementById("refresh").onclick=function(){var u=document.getElementById("url").value.trim();if(u&&ws&&ws.readyState===WebSocket.OPEN){ws.send(JSON.stringify({type:"control",action:"navigate",url:u}))}};document.getElementById("view").addEventListener("wheel",function(ev){ev.preventDefault();if(ws&&ws.readyState===WebSocket.OPEN){ws.send(JSON.stringify({type:"control",action:"scroll",dx:0,dy:Math.round(ev.deltaY)}))}},{passive:false});document.addEventListener("keydown",function(e){if(document.activeElement.id==="url")return;if(ws&&ws.readyState===WebSocket.OPEN){ws.send(JSON.stringify({type:"control",action:"type",text:e.key}))}});window.addEventListener("beforeunload",function(){if(ws&&ws.readyState===WebSocket.OPEN){ws.send(JSON.stringify({type:"control",action:"close"}));ws.close()}})})();<\/script></body></html>';
-}
+// buttons
+const nameInput = document.getElementById("name");
+const keyInput = document.getElementById("key");
 
-// Attach event listeners when DOM is ready
-document.addEventListener('DOMContentLoaded', function() {
-  console.log("DOM loaded, attaching event listeners...");
-  
-  const wakeBtn = document.getElementById("wakeBtn");
-  const loginBtn = document.getElementById("loginBtn");
-  const keyInput = document.getElementById("key");
-  
-  if (wakeBtn) {
-    wakeBtn.onclick = handleWake;
-    console.log("Wake button listener attached");
-  } else {
-    console.error("Wake button not found!");
-  }
-  
-  if (loginBtn) {
-    loginBtn.onclick = handleLogin;
-    console.log("Login button listener attached");
-  } else {
-    console.error("Login button not found!");
-  }
-  
-  if (keyInput) {
-    keyInput.addEventListener("keypress", function(e) {
-      if (e.key === "Enter") {
-        handleLogin();
-      }
-    });
-    console.log("Enter key listener attached");
-  }
-});
+document.getElementById("wakeBtn").onclick = handleWake;
+document.getElementById("loginBtn").onclick = handleLogin;
 
-// Fallback: Also attach after a short delay
-setTimeout(function() {
-  const wakeBtn = document.getElementById("wakeBtn");
-  if (wakeBtn && !wakeBtn.onclick) {
-    console.log("Fallback: Attaching wake button listener");
-    wakeBtn.onclick = handleWake;
-  }
-  
-  const loginBtn = document.getElementById("loginBtn");
-  if (loginBtn && !loginBtn.onclick) {
-    console.log("Fallback: Attaching login button listener");
-    loginBtn.onclick = handleLogin;
-  }
-}, 100);
-
-console.log("Script loaded successfully");
 </script>
 
 </body>
