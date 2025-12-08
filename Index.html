@@ -1,116 +1,197 @@
-<!DOCTYPE html>
+<!doctype html>
 <html>
 <head>
-<meta charset="UTF-8">
-<title>Remote Browser</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Remote Browser — Login</title>
 <style>
-body { background:#111; color:white; font-family:Arial; text-align:center; }
-input { width:300px; padding:8px; margin-top:20px; }
-button { padding:10px 18px; margin:10px; }
-#status { margin-top:20px; }
+  body{font-family:Segoe UI,Arial;background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;padding:20px}
+  .card{background:#fff;color:#222;padding:28px;border-radius:12px;max-width:420px;width:100%;box-shadow:0 18px 50px rgba(0,0,0,.25)}
+  h2{text-align:center;margin:0 0 16px}
+  input{width:100%;padding:12px;border-radius:8px;border:1px solid #ddd;margin-top:10px;box-sizing:border-box}
+  button{width:100%;padding:12px;border-radius:8px;border:0;background:#4a5de6;color:#fff;margin-top:12px;cursor:pointer;font-weight:700}
+  .wake{background:#ffd34d;color:#000}
+  .status{margin-top:12px;padding:10px;border-radius:8px;display:none}
+  .status.show{display:block}
 </style>
 </head>
 <body>
-
-<h1>Remote Browser</h1>
-<input id="url" placeholder="Enter URL" />
-<br>
-<button onclick="launch()">Launch</button>
-<div id="status">Idle</div>
+  <div class="card">
+    <h2>🌐 Remote Browser</h2>
+    <input id="name" placeholder="Your name">
+    <input id="key" type="password" placeholder="Access key">
+    <button id="wakeBtn" class="wake">☕ Wake Server</button>
+    <button id="loginBtn">🚀 Login & Launch</button>
+    <div id="status" class="status"></div>
+  </div>
 
 <script>
-function launch() {
-  const popup = window.open("about:blank", "remote", "width=1400,height=800");
-  popup.document.write(`
-    <html><body style="margin:0;background:black;">
-    <canvas id="screen" width="1366" height="768" style="width:100%;height:auto;"></canvas>
-    <script>
+const API = "https://render-repo-1-yto6.onrender.com"; // ← set to your public URL
 
-    const cv = document.getElementById("screen");
-    const ctx = cv.getContext("2d");
-
-    const ws = new WebSocket("${location.origin.replace(/^http/,'ws')}/ws");
-
-    let connected = false;
-
-    ws.onopen = () => {
-      ws.send(JSON.stringify({ action: "create" }));
-    };
-
-    ws.onmessage = (msg) => {
-      if (typeof msg.data === "string") {
-        const obj = JSON.parse(msg.data);
-
-        if (obj.type === "created") {
-          ws.send(JSON.stringify({ action: "startStream" }));
-          ws.send(JSON.stringify({ action: "navigate", url: "${document.getElementById("url").value}" }));
-        }
-        return;
-      }
-
-      // Draw JPEG frames
-      const blob = msg.data;
-      const img = new Image();
-      img.src = URL.createObjectURL(blob);
-      img.onload = () => {
-        ctx.drawImage(img, 0, 0, cv.width, cv.height);
-        URL.revokeObjectURL(img.src);
-      };
-    };
-
-    /* -------- Handle Mouse -------- */
-    cv.addEventListener("click", e => {
-      const r = cv.getBoundingClientRect();
-      const x = (e.clientX - r.left) * (cv.width / r.width);
-      const y = (e.clientY - r.top) * (cv.height / r.height);
-      ws.send(JSON.stringify({ action: "click", x, y }));
-    });
-
-    cv.addEventListener("wheel", e => {
-      ws.send(JSON.stringify({ action: "scroll", dy: e.deltaY }));
-      e.preventDefault();
-    }, { passive:false });
-
-    /* -------- Handle Keyboard -------- */
-    document.addEventListener("keydown", function(e) {
-      const special = {
-        "Backspace":"Backspace",
-        "Enter":"Enter",
-        "Tab":"Tab",
-        "Escape":"Escape",
-        "ArrowUp":"ArrowUp",
-        "ArrowDown":"ArrowDown",
-        "ArrowLeft":"ArrowLeft",
-        "ArrowRight":"ArrowRight",
-        "Delete":"Delete"
-      };
-
-      if (special[e.key]) {
-        ws.send(JSON.stringify({
-          action:"type",
-          text:special[e.key],
-          special:true
-        }));
-        e.preventDefault();
-        return;
-      }
-
-      // Printable characters
-      if (e.key.length === 1) {
-        ws.send(JSON.stringify({
-          action:"type",
-          text:e.key
-        }));
-        e.preventDefault();
-      }
-    });
-
-    <\/script>
-    </body></html>
-  `);
+function setStatus(msg, cls) {
+  const s = document.getElementById("status");
+  s.innerHTML = msg;
+  s.className = 'status show ' + (cls||'');
 }
 
-</script>
+document.getElementById("wakeBtn").addEventListener("click", async () => {
+  setStatus("Waking server...", "info");
+  try {
+    const r = await fetch(API + "/health");
+    const j = await r.json();
+    setStatus(j.status === "ok" ? "Server ready" : "Server responded but not OK", j.status === "ok" ? "success" : "error");
+  } catch (e) {
+    setStatus("Server unreachable: " + e.message, "error");
+  }
+});
 
+document.getElementById("loginBtn").addEventListener("click", async () => {
+  const name = document.getElementById("name").value.trim();
+  const key = document.getElementById("key").value.trim();
+  if (!name || !key) { setStatus("Enter name and key", "error"); return; }
+
+  setStatus("Validating...", "info");
+  try {
+    const r = await fetch(API + "/validate?name=" + encodeURIComponent(name) + "&key=" + encodeURIComponent(key));
+    const j = await r.json();
+    if (!j.valid) { setStatus("Invalid credentials", "error"); return; }
+
+    const wsURL = API.replace(/^http/, "ws") + "/ws";
+    const popup = window.open("", "_blank", "width=1400,height=900");
+    if (!popup) { setStatus("Popup blocked — allow popups", "error"); return; }
+
+    // Write popup UI
+    popup.document.write(popupHTML(name, wsURL));
+    popup.document.close();
+    setStatus("Popup opened — connecting...", "success");
+  } catch (e) {
+    setStatus("Connection failed: " + e.message, "error");
+  }
+});
+
+function popupHTML(userName, wsURL) {
+  return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Remote Browser</title>
+  <style>body{margin:0;background:#000;color:#fff;font-family:Segoe UI,Arial} .bar{background:#111;padding:8px;display:flex;gap:8px;align-items:center} .url{flex:1;padding:8px;border-radius:999px;border:1px solid #333;background:#111;color:#fff} button{padding:8px 12px;border-radius:8px;border:0;background:#4a5de6;color:#fff;cursor:pointer} .view{height:calc(100vh - 48px);display:flex;align-items:center;justify-content:center;position:relative} .statusOverlay{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);color:#ddd;text-align:center} img{max-width:100%;max-height:100%;object-fit:contain;cursor:pointer}</style></head><body>
+  <div class="bar"><button id="back">◀</button><button id="forward">▶</button><input id="url" class="url" placeholder="example.com"><button id="go">Go</button><span style="margin-left:10px;padding:6px 10px;background:#4a5de6;border-radius:12px">${escapeHtml(userName)}</span></div>
+  <div id="view" class="view"><div class="statusOverlay"><div id="spinner" style="margin-bottom:12px">⏳</div><div id="msg">Connecting to server...</div><div id="error" style="color:#ff9090;display:none;margin-top:8px"></div></div></div>
+
+  <script>
+  (function(){
+    const WS = "${wsURL}";
+    let ws = null;
+    let reconnectAttempts = 0;
+    const MAX_RECONNECT = 3;
+    const view = document.getElementById('view');
+    const msgEl = document.getElementById('msg');
+    const errEl = document.getElementById('error');
+
+    function showMsg(t){ msgEl.textContent = t; errEl.style.display='none'; }
+    function showError(t){ errEl.textContent = t; errEl.style.display='block'; }
+
+    function connect(){
+      ws = new WebSocket(WS);
+      ws.binaryType = 'arraybuffer';
+
+      ws.onopen = () => {
+        reconnectAttempts = 0;
+        showMsg('Connected — creating session...');
+        ws.send(JSON.stringify({ type: 'control', action: 'create', userName: '${escapeJs(userName)}' }));
+      };
+
+      ws.onmessage = (e) => {
+        if (typeof e.data === 'string') {
+          try {
+            const j = JSON.parse(e.data);
+            if (j.type === 'info' && j.action === 'created') {
+              ws.send(JSON.stringify({ type: 'control', action: 'startStream' }));
+              showMsg('Streaming...');
+            }
+            if (j.type === 'error') showError('Server error: ' + (j.message || 'unknown'));
+          } catch (err) {}
+          return;
+        }
+
+        // binary JPEG frame
+        const blob = new Blob([e.data], { type: 'image/jpeg' });
+        const url = URL.createObjectURL(blob);
+        view.innerHTML = '<img id="frame" src="' + url + '">';
+        setTimeout(()=>URL.revokeObjectURL(url), 12000);
+
+        const img = document.getElementById('frame');
+        img.onclick = function(ev){
+          const r = img.getBoundingClientRect();
+          const x = Math.round((ev.clientX - r.left) * (1366 / r.width));
+          const y = Math.round((ev.clientY - r.top) * (768 / r.height));
+          if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'control', action: 'click', x, y }));
+        };
+      };
+
+      ws.onerror = (err) => { console.error('WS error', err); showError('Connection error'); };
+      ws.onclose = () => {
+        showMsg('Disconnected');
+        if (reconnectAttempts < MAX_RECONNECT) {
+          reconnectAttempts++;
+          showError('Connection lost. Reconnecting... (' + reconnectAttempts + '/' + MAX_RECONNECT + ')');
+          setTimeout(connect, 2000 * reconnectAttempts);
+        } else {
+          showError('Failed to connect after multiple attempts.');
+        }
+      };
+    }
+
+    connect();
+
+    // UI controls
+    document.getElementById('go').onclick = function(){
+      const u = document.getElementById('url').value.trim();
+      if (!u || !ws || ws.readyState !== WebSocket.OPEN) return;
+      ws.send(JSON.stringify({ type: 'control', action: 'navigate', url: u }));
+    };
+
+    document.getElementById('back').onclick = function(){ if (ws && ws.readyState===WebSocket.OPEN) ws.send(JSON.stringify({ type:'control', action:'back' })); };
+    document.getElementById('forward').onclick = function(){ if (ws && ws.readyState===WebSocket.OPEN) ws.send(JSON.stringify({ type:'control', action:'forward' })); };
+
+    // scroll wheel -> remote scroll
+    view.addEventListener('wheel', function(ev){
+      ev.preventDefault();
+      if (ws && ws.readyState===WebSocket.OPEN) ws.send(JSON.stringify({ type:'control', action:'scroll', dy: Math.round(ev.deltaY) }));
+    }, { passive:false });
+
+    // keyboard: handle printable and special keys
+    document.addEventListener('keydown', function(e){
+      const active = document.activeElement;
+      if (active && active.id === 'url') return; // typing in URL bar locally
+      if (!ws || ws.readyState !== WebSocket.OPEN) return;
+
+      const specialMap = {
+        'Backspace':'Backspace','Enter':'Enter','Tab':'Tab','Escape':'Escape',
+        'ArrowUp':'ArrowUp','ArrowDown':'ArrowDown','ArrowLeft':'ArrowLeft','ArrowRight':'ArrowRight','Delete':'Delete'
+      };
+
+      if (specialMap[e.key]) {
+        ws.send(JSON.stringify({ type:'control', action:'type', text: specialMap[e.key], special: true }));
+        e.preventDefault();
+        return;
+      }
+
+      if (e.key.length === 1) {
+        ws.send(JSON.stringify({ type:'control', action:'type', text: e.key }));
+        e.preventDefault();
+      }
+    });
+
+    // before unload close session
+    window.addEventListener('beforeunload', function(){
+      try { if (ws && ws.readyState === WebSocket.OPEN) { ws.send(JSON.stringify({ type:'control', action:'close' })); ws.close(); } } catch(e){}
+    });
+
+  })();
+  </script></body></html>`;
+}
+
+// small helpers to safely inject username
+function escapeHtml(s){ return String(s).replace(/[&<>"']/g, c=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c])); }
+function escapeJs(s){ return String(s).replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/\\/g,'\\\\').replace(/"/g,'\\"').replace(/\\n/g,'\\n'); }
+</script>
 </body>
 </html>
