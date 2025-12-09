@@ -28,7 +28,7 @@
 </div>
 
 <script>
-const API = "https://render-repo-1-yto6.onrender.com"; // <-- set to your Render public URL
+const API = "https://render-repo-1-yto6.onrender.com";
 
 function setStatus(msg, type) {
   const el = document.getElementById("status");
@@ -59,57 +59,156 @@ document.getElementById("loginBtn").addEventListener("click", async () => {
     const j = await r.json();
     if (!j.valid) { setStatus("Invalid credentials", "error"); return; }
 
-    // compute ws URL (wss)
     const wsURL = API.replace(/^http/, "ws") + "/ws";
 
     const popup = window.open("", "_blank", "width=1366,height=768");
     if (!popup) { setStatus("Popup blocked — allow popups", "error"); return; }
 
-    // write popup UI (simple)
-    popup.document.write(`
+    popup.document.write(\`
       <!doctype html>
       <html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
       <title>Remote Browser</title>
-      <style>body{margin:0;background:#000;color:#fff;font-family:Segoe UI,Arial;overflow:hidden} .bar{background:#111;padding:8px;display:flex;gap:8px;align-items:center} .url{flex:1;padding:8px;border-radius:999px;border:1px solid #333;background:#0d0d0d;color:#fff} .view{height:calc(100vh - 48px);display:flex;align-items:center;justify-content:center} img{max-width:100%;max-height:100%;object-fit:contain}</style>
+      <style>
+        body{margin:0;background:#000;color:#fff;font-family:Segoe UI,Arial;overflow:hidden} 
+        .bar{background:#111;padding:8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap} 
+        .url{flex:1;min-width:200px;padding:8px;border-radius:999px;border:1px solid #333;background:#0d0d0d;color:#fff} 
+        button{padding:8px 16px;border-radius:999px;border:1px solid #333;background:#222;color:#fff;cursor:pointer}
+        button:hover{background:#333}
+        .view{height:calc(100vh - 48px);display:flex;align-items:center;justify-content:center;position:relative} 
+        img{max-width:100%;max-height:100%;object-fit:contain;cursor:crosshair}
+        .msg{color:#ddd;text-align:center}
+        .controls{display:flex;gap:4px}
+      </style>
       </head><body>
-      <div class="bar"><input id="url" class="url" placeholder="example.com"><button id="go">Go</button></div>
+      <div class="bar">
+        <input id="url" class="url" placeholder="example.com">
+        <div class="controls">
+          <button id="go">Go</button>
+          <button id="back">←</button>
+          <button id="forward">→</button>
+        </div>
+      </div>
       <div id="view" class="view">Connecting...</div>
       <script>
-        const WS = "${wsURL}";
+        const WS = "\${wsURL}";
         let ws = null;
-        function showMsg(t){ document.getElementById('view').innerHTML = '<div style="color:#ddd">'+t+'</div>' }
+        let focused = false;
+        
+        function showMsg(t){ document.getElementById('view').innerHTML = '<div class="msg">'+t+'</div>' }
+        
         function connect() {
-          ws = new WebSocket(WS); ws.binaryType = 'arraybuffer';
-          ws.onopen = ()=>{ showMsg('Connected — creating session...'); ws.send(JSON.stringify({type:'control', action:'create', userName:'${name}'})); };
+          ws = new WebSocket(WS); 
+          ws.binaryType = 'arraybuffer';
+          
+          ws.onopen = ()=>{ 
+            showMsg('Connected — creating session...'); 
+            ws.send(JSON.stringify({type:'control', action:'create', userName:'\${name}'})); 
+          };
+          
           ws.onmessage = (e)=> {
             if (typeof e.data === 'string') {
-              try { const j = JSON.parse(e.data); if (j.type==='info' && j.action==='created') { ws.send(JSON.stringify({type:'control', action:'startStream'})); showMsg('Streaming...'); } if (j.type==='error') { showMsg('Server error: '+j.message); } } catch {}
+              try { 
+                const j = JSON.parse(e.data); 
+                if (j.type==='info' && j.action==='created') { 
+                  ws.send(JSON.stringify({type:'control', action:'startStream'})); 
+                  showMsg('Streaming...'); 
+                } 
+                if (j.type==='error') { 
+                  showMsg('Server error: '+j.message); 
+                } 
+              } catch {}
               return;
             }
+            
             const blob = new Blob([e.data], { type: 'image/jpeg' });
             const url = URL.createObjectURL(blob);
-            document.getElementById('view').innerHTML = '<img id=\"frame\" src=\"'+url+'\">';
+            document.getElementById('view').innerHTML = '<img id="frame" src="'+url+'" tabindex="0">';
             setTimeout(()=>URL.revokeObjectURL(url), 10000);
+            
             const img = document.getElementById('frame');
+            
+            // Click handler
             img.onclick = (ev)=> {
               const r = img.getBoundingClientRect();
               const x = Math.round((ev.clientX - r.left) * (1366 / r.width));
               const y = Math.round((ev.clientY - r.top) * (768 / r.height));
-              if (ws && ws.readyState===WebSocket.OPEN) ws.send(JSON.stringify({type:'control', action:'click', x, y}));
+              if (ws && ws.readyState===WebSocket.OPEN) {
+                ws.send(JSON.stringify({type:'control', action:'click', x, y}));
+              }
+              img.focus();
             };
+            
+            // Keyboard handler - NEW!
+            img.addEventListener('keydown', (ev)=> {
+              if (ws && ws.readyState===WebSocket.OPEN) {
+                // Send the typed character
+                if (ev.key.length === 1) {
+                  ws.send(JSON.stringify({type:'control', action:'type', text: ev.key}));
+                  ev.preventDefault();
+                }
+                // Handle special keys
+                else if (ev.key === 'Enter') {
+                  ws.send(JSON.stringify({type:'control', action:'type', text: '\\n'}));
+                  ev.preventDefault();
+                }
+                else if (ev.key === 'Backspace') {
+                  ws.send(JSON.stringify({type:'control', action:'type', text: '\\b'}));
+                  ev.preventDefault();
+                }
+                else if (ev.key === 'Tab') {
+                  ws.send(JSON.stringify({type:'control', action:'type', text: '\\t'}));
+                  ev.preventDefault();
+                }
+              }
+            });
+            
+            // Scroll handler - NEW!
+            img.addEventListener('wheel', (ev)=> {
+              if (ws && ws.readyState===WebSocket.OPEN) {
+                ws.send(JSON.stringify({type:'control', action:'scroll', dy: ev.deltaY}));
+                ev.preventDefault();
+              }
+            }, {passive: false});
+            
+            // Auto-focus for keyboard input
+            setTimeout(()=>img.focus(), 100);
           };
+          
           ws.onerror = (e) => showMsg('Connection error');
           ws.onclose = ()=> showMsg('Disconnected');
         }
+        
         connect();
+        
+        // Navigation controls
         document.getElementById('go').onclick = ()=> {
           const u = document.getElementById('url').value.trim();
           if (!u) return;
-          if (ws && ws.readyState===WebSocket.OPEN) ws.send(JSON.stringify({type:'control', action:'navigate', url: u}));
+          if (ws && ws.readyState===WebSocket.OPEN) {
+            ws.send(JSON.stringify({type:'control', action:'navigate', url: u}));
+          }
+        };
+        
+        document.getElementById('url').addEventListener('keydown', (ev)=> {
+          if (ev.key === 'Enter') {
+            document.getElementById('go').click();
+          }
+        });
+        
+        document.getElementById('back').onclick = ()=> {
+          if (ws && ws.readyState===WebSocket.OPEN) {
+            ws.send(JSON.stringify({type:'control', action:'back'}));
+          }
+        };
+        
+        document.getElementById('forward').onclick = ()=> {
+          if (ws && ws.readyState===WebSocket.OPEN) {
+            ws.send(JSON.stringify({type:'control', action:'forward'}));
+          }
         };
       <\/script>
       </body></html>
-    `);
+    \`);
     popup.document.close();
     setStatus("Popup opened", "success");
   } catch (e) {
