@@ -13,14 +13,17 @@
   .wake{background:#ffd34d;color:#000}
   .status{margin-top:12px;padding:10px;border-radius:8px;display:none}
   .status.show{display:block}
+  .status.info{background:#e3f2fd;color:#1976d2}
+  .status.success{background:#e8f5e9;color:#2e7d32}
+  .status.error{background:#ffebee;color:#c62828}
   .info{font-size:12px;color:#666;margin-top:12px;background:#f5f5f5;padding:10px;border-radius:8px;color:#333}
 </style>
 </head>
 <body>
 <div class="card">
   <h2>🌐 Remote Browser</h2>
-  <input id="name" placeholder="Your name">
-  <input id="key" placeholder="Access key" type="password">
+  <input id="name" placeholder="Your name" value="Alice">
+  <input id="key" placeholder="Access key" type="password" value="8392017">
   <button id="wakeBtn" class="wake">☕ Wake Server</button>
   <button id="loginBtn">🚀 Login & Launch</button>
   <div id="status" class="status"></div>
@@ -41,178 +44,170 @@ document.getElementById("wakeBtn").addEventListener("click", async () => {
   try {
     const r = await fetch(API + "/health");
     const j = await r.json();
-    if (j.status === "ok") setStatus("Server ready", "success");
+    if (j.status === "ok") setStatus("✅ Server ready", "success");
     else setStatus("Server responded but not OK", "error");
   } catch (e) {
-    setStatus("Server unreachable: " + e.message, "error");
+    setStatus("❌ Server unreachable: " + e.message, "error");
   }
 });
 
 document.getElementById("loginBtn").addEventListener("click", async () => {
   const name = document.getElementById("name").value.trim();
   const key = document.getElementById("key").value.trim();
-  if (!name || !key) { setStatus("Enter name and key", "error"); return; }
+  if (!name || !key) { setStatus("❌ Enter name and key", "error"); return; }
 
   setStatus("Validating...", "info");
   try {
     const r = await fetch(API + "/validate?name=" + encodeURIComponent(name) + "&key=" + encodeURIComponent(key));
     const j = await r.json();
-    if (!j.valid) { setStatus("Invalid credentials", "error"); return; }
+    if (!j.valid) { setStatus("❌ Invalid credentials", "error"); return; }
 
     const wsURL = API.replace(/^http/, "ws") + "/ws";
 
     const popup = window.open("", "_blank", "width=1366,height=768");
-    if (!popup) { setStatus("Popup blocked — allow popups", "error"); return; }
+    if (!popup) { setStatus("❌ Popup blocked — allow popups", "error"); return; }
 
-    popup.document.write(\`
-      <!doctype html>
-      <html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-      <title>Remote Browser</title>
-      <style>
-        body{margin:0;background:#000;color:#fff;font-family:Segoe UI,Arial;overflow:hidden} 
-        .bar{background:#111;padding:8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap} 
-        .url{flex:1;min-width:200px;padding:8px;border-radius:999px;border:1px solid #333;background:#0d0d0d;color:#fff} 
-        button{padding:8px 16px;border-radius:999px;border:1px solid #333;background:#222;color:#fff;cursor:pointer}
-        button:hover{background:#333}
-        .view{height:calc(100vh - 48px);display:flex;align-items:center;justify-content:center;position:relative} 
-        img{max-width:100%;max-height:100%;object-fit:contain;cursor:crosshair}
-        .msg{color:#ddd;text-align:center}
-        .controls{display:flex;gap:4px}
-      </style>
-      </head><body>
-      <div class="bar">
-        <input id="url" class="url" placeholder="example.com">
-        <div class="controls">
-          <button id="go">Go</button>
-          <button id="back">←</button>
-          <button id="forward">→</button>
-        </div>
-      </div>
-      <div id="view" class="view">Connecting...</div>
-      <script>
-        const WS = "\${wsURL}";
-        let ws = null;
-        let focused = false;
-        
-        function showMsg(t){ document.getElementById('view').innerHTML = '<div class="msg">'+t+'</div>' }
-        
-        function connect() {
-          ws = new WebSocket(WS); 
-          ws.binaryType = 'arraybuffer';
-          
-          ws.onopen = ()=>{ 
-            showMsg('Connected — creating session...'); 
-            ws.send(JSON.stringify({type:'control', action:'create', userName:'\${name}'})); 
-          };
-          
-          ws.onmessage = (e)=> {
-            if (typeof e.data === 'string') {
-              try { 
-                const j = JSON.parse(e.data); 
-                if (j.type==='info' && j.action==='created') { 
-                  ws.send(JSON.stringify({type:'control', action:'startStream'})); 
-                  showMsg('Streaming...'); 
-                } 
-                if (j.type==='error') { 
-                  showMsg('Server error: '+j.message); 
-                } 
-              } catch {}
-              return;
-            }
-            
-            const blob = new Blob([e.data], { type: 'image/jpeg' });
-            const url = URL.createObjectURL(blob);
-            document.getElementById('view').innerHTML = '<img id="frame" src="'+url+'" tabindex="0">';
-            setTimeout(()=>URL.revokeObjectURL(url), 10000);
-            
-            const img = document.getElementById('frame');
-            
-            // Click handler
-            img.onclick = (ev)=> {
-              const r = img.getBoundingClientRect();
-              const x = Math.round((ev.clientX - r.left) * (1366 / r.width));
-              const y = Math.round((ev.clientY - r.top) * (768 / r.height));
-              if (ws && ws.readyState===WebSocket.OPEN) {
-                ws.send(JSON.stringify({type:'control', action:'click', x, y}));
-              }
-              img.focus();
-            };
-            
-            // Keyboard handler - NEW!
-            img.addEventListener('keydown', (ev)=> {
-              if (ws && ws.readyState===WebSocket.OPEN) {
-                // Send the typed character
-                if (ev.key.length === 1) {
-                  ws.send(JSON.stringify({type:'control', action:'type', text: ev.key}));
-                  ev.preventDefault();
-                }
-                // Handle special keys
-                else if (ev.key === 'Enter') {
-                  ws.send(JSON.stringify({type:'control', action:'type', text: '\\n'}));
-                  ev.preventDefault();
-                }
-                else if (ev.key === 'Backspace') {
-                  ws.send(JSON.stringify({type:'control', action:'type', text: '\\b'}));
-                  ev.preventDefault();
-                }
-                else if (ev.key === 'Tab') {
-                  ws.send(JSON.stringify({type:'control', action:'type', text: '\\t'}));
-                  ev.preventDefault();
-                }
-              }
-            });
-            
-            // Scroll handler - NEW!
-            img.addEventListener('wheel', (ev)=> {
-              if (ws && ws.readyState===WebSocket.OPEN) {
-                ws.send(JSON.stringify({type:'control', action:'scroll', dy: ev.deltaY}));
-                ev.preventDefault();
-              }
-            }, {passive: false});
-            
-            // Auto-focus for keyboard input
-            setTimeout(()=>img.focus(), 100);
-          };
-          
-          ws.onerror = (e) => showMsg('Connection error');
-          ws.onclose = ()=> showMsg('Disconnected');
+    const popupHTML = `<!doctype html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Remote Browser</title>
+<style>
+  body{margin:0;background:#000;color:#fff;font-family:Segoe UI,Arial;overflow:hidden} 
+  .bar{background:#111;padding:8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap} 
+  .url{flex:1;min-width:200px;padding:8px;border-radius:999px;border:1px solid #333;background:#0d0d0d;color:#fff} 
+  button{padding:8px 16px;border-radius:999px;border:1px solid #333;background:#222;color:#fff;cursor:pointer}
+  button:hover{background:#333}
+  .view{height:calc(100vh - 48px);display:flex;align-items:center;justify-content:center;position:relative} 
+  img{max-width:100%;max-height:100%;object-fit:contain;cursor:crosshair}
+  .msg{color:#ddd;text-align:center}
+  .controls{display:flex;gap:4px}
+</style>
+</head><body>
+<div class="bar">
+  <input id="url" class="url" placeholder="example.com">
+  <div class="controls">
+    <button id="go">Go</button>
+    <button id="back">←</button>
+    <button id="forward">→</button>
+  </div>
+</div>
+<div id="view" class="view">Connecting...</div>
+<script>
+  const WS = "${wsURL}";
+  let ws = null;
+  
+  function showMsg(t){ document.getElementById('view').innerHTML = '<div class="msg">'+t+'</div>' }
+  
+  function connect() {
+    ws = new WebSocket(WS); 
+    ws.binaryType = 'arraybuffer';
+    
+    ws.onopen = function() { 
+      showMsg('Connected — creating session...'); 
+      ws.send(JSON.stringify({type:'control', action:'create', userName:'${name}'})); 
+    };
+    
+    ws.onmessage = function(e) {
+      if (typeof e.data === 'string') {
+        try { 
+          const j = JSON.parse(e.data); 
+          if (j.type==='info' && j.action==='created') { 
+            ws.send(JSON.stringify({type:'control', action:'startStream'})); 
+            showMsg('Streaming...'); 
+          } 
+          if (j.type==='error') { 
+            showMsg('Server error: '+j.message); 
+          } 
+        } catch(err) {}
+        return;
+      }
+      
+      const blob = new Blob([e.data], { type: 'image/jpeg' });
+      const url = URL.createObjectURL(blob);
+      document.getElementById('view').innerHTML = '<img id="frame" src="'+url+'" tabindex="0">';
+      setTimeout(function(){URL.revokeObjectURL(url)}, 10000);
+      
+      const img = document.getElementById('frame');
+      
+      img.onclick = function(ev) {
+        const r = img.getBoundingClientRect();
+        const x = Math.round((ev.clientX - r.left) * (1366 / r.width));
+        const y = Math.round((ev.clientY - r.top) * (768 / r.height));
+        if (ws && ws.readyState===WebSocket.OPEN) {
+          ws.send(JSON.stringify({type:'control', action:'click', x:x, y:y}));
         }
-        
-        connect();
-        
-        // Navigation controls
-        document.getElementById('go').onclick = ()=> {
-          const u = document.getElementById('url').value.trim();
-          if (!u) return;
-          if (ws && ws.readyState===WebSocket.OPEN) {
-            ws.send(JSON.stringify({type:'control', action:'navigate', url: u}));
+        img.focus();
+      };
+      
+      img.addEventListener('keydown', function(ev) {
+        if (ws && ws.readyState===WebSocket.OPEN) {
+          if (ev.key.length === 1) {
+            ws.send(JSON.stringify({type:'control', action:'type', text: ev.key}));
+            ev.preventDefault();
           }
-        };
-        
-        document.getElementById('url').addEventListener('keydown', (ev)=> {
-          if (ev.key === 'Enter') {
-            document.getElementById('go').click();
+          else if (ev.key === 'Enter') {
+            ws.send(JSON.stringify({type:'control', action:'type', text: '\\n'}));
+            ev.preventDefault();
           }
-        });
-        
-        document.getElementById('back').onclick = ()=> {
-          if (ws && ws.readyState===WebSocket.OPEN) {
-            ws.send(JSON.stringify({type:'control', action:'back'}));
+          else if (ev.key === 'Backspace') {
+            ws.send(JSON.stringify({type:'control', action:'type', text: '\\b'}));
+            ev.preventDefault();
           }
-        };
-        
-        document.getElementById('forward').onclick = ()=> {
-          if (ws && ws.readyState===WebSocket.OPEN) {
-            ws.send(JSON.stringify({type:'control', action:'forward'}));
+          else if (ev.key === 'Tab') {
+            ws.send(JSON.stringify({type:'control', action:'type', text: '\\t'}));
+            ev.preventDefault();
           }
-        };
-      <\/script>
-      </body></html>
-    \`);
+        }
+      });
+      
+      img.addEventListener('wheel', function(ev) {
+        if (ws && ws.readyState===WebSocket.OPEN) {
+          ws.send(JSON.stringify({type:'control', action:'scroll', dy: ev.deltaY}));
+          ev.preventDefault();
+        }
+      }, {passive: false});
+      
+      setTimeout(function(){img.focus()}, 100);
+    };
+    
+    ws.onerror = function(e) { showMsg('Connection error') };
+    ws.onclose = function() { showMsg('Disconnected') };
+  }
+  
+  connect();
+  
+  document.getElementById('go').onclick = function() {
+    const u = document.getElementById('url').value.trim();
+    if (!u) return;
+    if (ws && ws.readyState===WebSocket.OPEN) {
+      ws.send(JSON.stringify({type:'control', action:'navigate', url: u}));
+    }
+  };
+  
+  document.getElementById('url').addEventListener('keydown', function(ev) {
+    if (ev.key === 'Enter') {
+      document.getElementById('go').click();
+    }
+  });
+  
+  document.getElementById('back').onclick = function() {
+    if (ws && ws.readyState===WebSocket.OPEN) {
+      ws.send(JSON.stringify({type:'control', action:'back'}));
+    }
+  };
+  
+  document.getElementById('forward').onclick = function() {
+    if (ws && ws.readyState===WebSocket.OPEN) {
+      ws.send(JSON.stringify({type:'control', action:'forward'}));
+    }
+  };
+</` + `script>
+</body></html>`;
+
+    popup.document.write(popupHTML);
     popup.document.close();
-    setStatus("Popup opened", "success");
+    setStatus("✅ Popup opened", "success");
   } catch (e) {
-    setStatus("Connection failed: " + e.message, "error");
+    setStatus("❌ Connection failed: " + e.message, "error");
   }
 });
 </script>
