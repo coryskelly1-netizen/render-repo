@@ -3,211 +3,583 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Remote Browser Proxy</title>
+<title>Distributed Multi-Browser System</title>
 <style>
-  body { font-family: 'Segoe UI', Tahoma, sans-serif; margin:0; background:linear-gradient(135deg,#667eea,#764ba2); color:#fff; display:flex; align-items:center; justify-content:center; min-height:100vh; padding:20px; }
-  .card { background:#fff;color:#222;padding:28px;border-radius:12px;max-width:420px;width:100%;box-shadow:0 18px 50px rgba(0,0,0,.25); }
-  h2{margin:0 0 12px 0;text-align:center}
-  input{width:100%;padding:12px;border-radius:8px;border:1px solid #ddd;margin-top:10px}
-  button{width:100%;padding:12px;border-radius:8px;border:0;background:#4a5de6;color:#fff;margin-top:12px;cursor:pointer;font-weight:700}
-  .wake{background:#ffd34d;color:#000}
-  .status{margin-top:12px;padding:10px;border-radius:8px;display:none}
-  .status.show{display:block}
-  .status.info{background:#e3f2fd;color:#1976d2}
-  .status.success{background:#e8f5e9;color:#2e7d32}
-  .status.error{background:#ffebee;color:#c62828}
-  .info{font-size:12px;color:#666;margin-top:12px;background:#f5f5f5;padding:10px;border-radius:8px;color:#333}
+  * { box-sizing: border-box; }
+  body { 
+    font-family: 'Segoe UI', Tahoma, sans-serif; 
+    margin:0; 
+    background:#0a0e27; 
+    color:#fff; 
+    padding:20px; 
+  }
+  .header { 
+    text-align:center; 
+    margin-bottom:20px; 
+    padding:20px;
+    background:linear-gradient(135deg,#667eea,#764ba2);
+    border-radius:12px;
+  }
+  h1 { margin:0; font-size:28px; }
+  .subtitle { opacity:0.9; margin-top:8px; font-size:14px; }
+  
+  .login-section {
+    max-width:400px;
+    margin:0 auto 30px;
+    padding:20px;
+    background:#1a1f3a;
+    border-radius:12px;
+  }
+  input { 
+    width:100%; 
+    padding:12px; 
+    border-radius:8px; 
+    border:1px solid #2d3748; 
+    background:#0f1419;
+    color:#fff;
+    margin-top:8px; 
+  }
+  button { 
+    width:100%; 
+    padding:12px; 
+    border-radius:8px; 
+    border:0; 
+    background:#4a5de6; 
+    color:#fff; 
+    margin-top:12px; 
+    cursor:pointer; 
+    font-weight:700;
+    transition: all 0.2s;
+  }
+  button:hover { background:#5a6df6; transform:translateY(-1px); }
+  button:disabled { background:#2d3748; cursor:not-allowed; }
+  
+  .status { 
+    padding:10px; 
+    border-radius:8px; 
+    margin-top:10px; 
+    display:none;
+    font-size:13px;
+  }
+  .status.show { display:block; }
+  .status.info { background:#1e3a5f; color:#60a5fa; }
+  .status.success { background:#1e3d2f; color:#4ade80; }
+  .status.error { background:#3d1e1e; color:#f87171; }
+  
+  .control-panel {
+    max-width:1400px;
+    margin:0 auto;
+    display:none;
+  }
+  .control-panel.active { display:block; }
+  
+  .browser-grid {
+    display:grid;
+    grid-template-columns:repeat(auto-fit, minmax(400px, 1fr));
+    gap:15px;
+    margin-bottom:20px;
+  }
+  
+  .browser-card {
+    background:#1a1f3a;
+    border-radius:12px;
+    padding:15px;
+    border:2px solid #2d3748;
+  }
+  .browser-card.connected { border-color:#4ade80; }
+  .browser-card.error { border-color:#f87171; }
+  
+  .browser-header {
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    margin-bottom:10px;
+  }
+  .browser-name {
+    font-weight:700;
+    color:#4a5de6;
+  }
+  .browser-status {
+    font-size:11px;
+    padding:4px 8px;
+    border-radius:999px;
+    background:#2d3748;
+  }
+  .browser-status.online { background:#1e3d2f; color:#4ade80; }
+  .browser-status.offline { background:#3d1e1e; color:#f87171; }
+  
+  .browser-preview {
+    width:100%;
+    height:200px;
+    background:#000;
+    border-radius:8px;
+    overflow:hidden;
+    cursor:pointer;
+    position:relative;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+  }
+  .browser-preview img {
+    max-width:100%;
+    max-height:100%;
+    object-fit:contain;
+  }
+  .browser-preview .placeholder {
+    color:#666;
+    font-size:12px;
+  }
+  
+  .browser-controls {
+    margin-top:10px;
+    display:flex;
+    gap:5px;
+  }
+  .browser-controls button {
+    flex:1;
+    margin:0;
+    padding:8px;
+    font-size:12px;
+  }
+  
+  .global-controls {
+    background:#1a1f3a;
+    padding:20px;
+    border-radius:12px;
+    margin-bottom:20px;
+  }
+  .global-url {
+    display:flex;
+    gap:10px;
+    margin-top:10px;
+  }
+  .global-url input {
+    flex:1;
+    margin:0;
+  }
+  .global-url button {
+    width:auto;
+    margin:0;
+    padding:12px 24px;
+  }
+  
+  .stats {
+    display:grid;
+    grid-template-columns:repeat(auto-fit, minmax(150px, 1fr));
+    gap:10px;
+    margin-top:15px;
+  }
+  .stat-box {
+    background:#0f1419;
+    padding:15px;
+    border-radius:8px;
+    text-align:center;
+  }
+  .stat-value {
+    font-size:24px;
+    font-weight:700;
+    color:#4a5de6;
+  }
+  .stat-label {
+    font-size:11px;
+    color:#888;
+    margin-top:5px;
+  }
 </style>
 </head>
 <body>
-<div class="card">
-  <h2>🌐 Remote Browser</h2>
+
+<div class="header">
+  <h1>⚡ Parallel Multi-Browser System</h1>
+  <div class="subtitle">Control multiple browsers simultaneously across different servers</div>
+</div>
+
+<div class="login-section" id="loginSection">
   <input id="name" placeholder="Your name" value="Alice">
   <input id="key" placeholder="Access key" type="password" value="8392017">
-  <button id="wakeBtn" class="wake">☕ Wake Server</button>
-  <button id="loginBtn">🚀 Login & Launch</button>
-  <div id="status" class="status"></div>
-  <div class="info">Streams a remote Chromium session. Use responsibly.</div>
+  
+  <button id="wakeBtn" style="background:#ffd34d;color:#000">☕ Wake All Servers</button>
+  <button id="launchBtn">🚀 Launch All Browsers</button>
+  <div id="loginStatus" class="status"></div>
+</div>
+
+<div class="control-panel" id="controlPanel">
+  <div class="global-controls">
+    <h3 style="margin:0 0 10px 0">🌐 Global Controls</h3>
+    <div class="global-url">
+      <input id="globalUrl" placeholder="Navigate all browsers to...">
+      <button id="globalGo">Go All</button>
+    </div>
+    
+    <div class="stats">
+      <div class="stat-box">
+        <div class="stat-value" id="statTotal">0</div>
+        <div class="stat-label">Total Browsers</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-value" id="statOnline">0</div>
+        <div class="stat-label">Online</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-value" id="statLatency">0ms</div>
+        <div class="stat-label">Avg Latency</div>
+      </div>
+    </div>
+  </div>
+  
+  <div class="browser-grid" id="browserGrid"></div>
 </div>
 
 <script>
-const API = "https://render-repo-1-yto6.onrender.com";
+// Add your hosting URLs here
+const HOST_POOL = [
+  { name: "Render-1", url: "https://render-repo-1-yto6.onrender.com" },
+  { name: "Render-2", url: "https://render-repo-0x73.onrender.com" },
+  { name: "Render-3", url: "https://render-repo-f64m.onrender.com" },
+  // Add Render-4, Render-5, etc. as you create more accounts!
+];
+
+let browsers = new Map(); // hostUrl -> { ws, status, latency, lastFrame }
+let userName = "";
 
 function setStatus(msg, type) {
-  const el = document.getElementById("status");
+  const el = document.getElementById("loginStatus");
   el.innerHTML = msg;
   el.className = "status show " + (type||"");
 }
 
-document.getElementById("wakeBtn").addEventListener("click", async () => {
-  setStatus("Waking server...", "info");
-  try {
-    const r = await fetch(API + "/health");
-    const j = await r.json();
-    if (j.status === "ok") setStatus("✅ Server ready", "success");
-    else setStatus("Server responded but not OK", "error");
-  } catch (e) {
-    setStatus("❌ Server unreachable: " + e.message, "error");
+function updateStats() {
+  const total = browsers.size;
+  const online = Array.from(browsers.values()).filter(b => b.status === 'connected').length;
+  const latencies = Array.from(browsers.values()).filter(b => b.latency).map(b => b.latency);
+  const avgLatency = latencies.length ? Math.round(latencies.reduce((a,b)=>a+b,0) / latencies.length) : 0;
+  
+  document.getElementById('statTotal').textContent = total;
+  document.getElementById('statOnline').textContent = online;
+  document.getElementById('statLatency').textContent = avgLatency + 'ms';
+}
+
+function createBrowserCard(host) {
+  const card = document.createElement('div');
+  card.className = 'browser-card';
+  card.id = 'card-' + host.url.replace(/[^a-z0-9]/gi, '');
+  
+  card.innerHTML = `
+    <div class="browser-header">
+      <div class="browser-name">${host.name}</div>
+      <div class="browser-status">connecting...</div>
+    </div>
+    <div class="browser-preview">
+      <div class="placeholder">Connecting...</div>
+    </div>
+    <div class="browser-controls">
+      <button onclick="openPopup('${host.url}')">📱 Popup</button>
+      <button onclick="reconnectBrowser('${host.url}')">🔄 Reconnect</button>
+      <button onclick="closeBrowser('${host.url}')">❌ Close</button>
+    </div>
+  `;
+  
+  return card;
+}
+
+function updateBrowserCard(hostUrl, data) {
+  const cardId = 'card-' + hostUrl.replace(/[^a-z0-9]/gi, '');
+  const card = document.getElementById(cardId);
+  if (!card) return;
+  
+  const statusEl = card.querySelector('.browser-status');
+  const previewEl = card.querySelector('.browser-preview');
+  
+  if (data.status === 'connected') {
+    card.className = 'browser-card connected';
+    statusEl.className = 'browser-status online';
+    statusEl.textContent = `online (${data.latency}ms)`;
+  } else if (data.status === 'error') {
+    card.className = 'browser-card error';
+    statusEl.className = 'browser-status offline';
+    statusEl.textContent = 'offline';
+    previewEl.innerHTML = '<div class="placeholder">Disconnected</div>';
+  } else {
+    statusEl.textContent = data.status;
   }
-});
+  
+  if (data.lastFrame) {
+    previewEl.innerHTML = `<img src="${data.lastFrame}">`;
+  }
+}
 
-document.getElementById("loginBtn").addEventListener("click", async () => {
-  const name = document.getElementById("name").value.trim();
-  const key = document.getElementById("key").value.trim();
-  if (!name || !key) { setStatus("❌ Enter name and key", "error"); return; }
-
-  setStatus("Validating...", "info");
+async function connectBrowser(host) {
+  const wsUrl = host.url.replace(/^http/, 'ws') + '/ws';
+  
   try {
-    const r = await fetch(API + "/validate?name=" + encodeURIComponent(name) + "&key=" + encodeURIComponent(key));
-    const j = await r.json();
-    if (!j.valid) { setStatus("❌ Invalid credentials", "error"); return; }
-
-    const wsURL = API.replace(/^http/, "ws") + "/ws";
-
-    const popup = window.open("", "_blank", "width=1366,height=768");
-    if (!popup) { setStatus("❌ Popup blocked — allow popups", "error"); return; }
-
-    const popupHTML = `<!doctype html>
-<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Remote Browser</title>
-<style>
-  body{margin:0;background:#000;color:#fff;font-family:Segoe UI,Arial;overflow:hidden} 
-  .bar{background:#111;padding:8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap} 
-  .url{flex:1;min-width:200px;padding:8px;border-radius:999px;border:1px solid #333;background:#0d0d0d;color:#fff} 
-  button{padding:8px 16px;border-radius:999px;border:1px solid #333;background:#222;color:#fff;cursor:pointer}
-  button:hover{background:#333}
-  .view{height:calc(100vh - 48px);display:flex;align-items:center;justify-content:center;position:relative} 
-  img{max-width:100%;max-height:100%;object-fit:contain;cursor:crosshair}
-  .msg{color:#ddd;text-align:center}
-  .controls{display:flex;gap:4px}
-</style>
-</head><body>
-<div class="bar">
-  <input id="url" class="url" placeholder="example.com">
-  <div class="controls">
-    <button id="go">Go</button>
-    <button id="back">←</button>
-    <button id="forward">→</button>
-  </div>
-</div>
-<div id="view" class="view">Connecting...</div>
-<script>
-  const WS = "${wsURL}";
-  let ws = null;
-  
-  function showMsg(t){ document.getElementById('view').innerHTML = '<div class="msg">'+t+'</div>' }
-  
-  function connect() {
-    ws = new WebSocket(WS); 
+    const ws = new WebSocket(wsUrl);
     ws.binaryType = 'arraybuffer';
     
-    ws.onopen = function() { 
-      showMsg('Connected — creating session...'); 
-      ws.send(JSON.stringify({type:'control', action:'create', userName:'${name}'})); 
+    const browserData = {
+      ws: ws,
+      host: host,
+      status: 'connecting',
+      latency: null,
+      lastFrame: null,
+      startTime: Date.now()
     };
     
-    ws.onmessage = function(e) {
+    browsers.set(host.url, browserData);
+    
+    ws.onopen = () => {
+      console.log(`✅ Connected to ${host.name}`);
+      browserData.status = 'authenticating';
+      ws.send(JSON.stringify({type:'control', action:'create', userName: userName}));
+    };
+    
+    ws.onmessage = (e) => {
       if (typeof e.data === 'string') {
-        try { 
-          const j = JSON.parse(e.data); 
-          if (j.type==='info' && j.action==='created') { 
-            ws.send(JSON.stringify({type:'control', action:'startStream'})); 
-            showMsg('Streaming...'); 
-          } 
-          if (j.type==='error') { 
-            showMsg('Server error: '+j.message); 
-          } 
-        } catch(err) {}
+        try {
+          const j = JSON.parse(e.data);
+          if (j.type === 'info' && j.action === 'created') {
+            browserData.status = 'connected';
+            browserData.latency = Date.now() - browserData.startTime;
+            ws.send(JSON.stringify({type:'control', action:'startStream'}));
+            updateBrowserCard(host.url, browserData);
+            updateStats();
+          }
+          if (j.type === 'error') {
+            console.error(`Error from ${host.name}:`, j.message);
+            browserData.status = 'error';
+            updateBrowserCard(host.url, browserData);
+          }
+        } catch (err) {}
         return;
       }
       
+      // Handle frame
       const blob = new Blob([e.data], { type: 'image/jpeg' });
       const url = URL.createObjectURL(blob);
-      document.getElementById('view').innerHTML = '<img id="frame" src="'+url+'" tabindex="0">';
-      setTimeout(function(){URL.revokeObjectURL(url)}, 10000);
+      browserData.lastFrame = url;
+      updateBrowserCard(host.url, browserData);
       
-      const img = document.getElementById('frame');
-      
-      img.onclick = function(ev) {
-        const r = img.getBoundingClientRect();
-        const x = Math.round((ev.clientX - r.left) * (1366 / r.width));
-        const y = Math.round((ev.clientY - r.top) * (768 / r.height));
-        if (ws && ws.readyState===WebSocket.OPEN) {
-          ws.send(JSON.stringify({type:'control', action:'click', x:x, y:y}));
-        }
-        img.focus();
-      };
-      
-      img.addEventListener('keydown', function(ev) {
-        if (ws && ws.readyState===WebSocket.OPEN) {
-          if (ev.key.length === 1) {
-            ws.send(JSON.stringify({type:'control', action:'type', text: ev.key}));
-            ev.preventDefault();
-          }
-          else if (ev.key === 'Enter') {
-            ws.send(JSON.stringify({type:'control', action:'type', text: '\\n'}));
-            ev.preventDefault();
-          }
-          else if (ev.key === 'Backspace') {
-            ws.send(JSON.stringify({type:'control', action:'type', text: '\\b'}));
-            ev.preventDefault();
-          }
-          else if (ev.key === 'Tab') {
-            ws.send(JSON.stringify({type:'control', action:'type', text: '\\t'}));
-            ev.preventDefault();
-          }
-        }
-      });
-      
-      img.addEventListener('wheel', function(ev) {
-        if (ws && ws.readyState===WebSocket.OPEN) {
-          ws.send(JSON.stringify({type:'control', action:'scroll', dy: ev.deltaY}));
-          ev.preventDefault();
-        }
-      }, {passive: false});
-      
-      setTimeout(function(){img.focus()}, 100);
+      // Clean up old frames
+      setTimeout(() => URL.revokeObjectURL(url), 5000);
     };
     
-    ws.onerror = function(e) { showMsg('Connection error') };
-    ws.onclose = function() { showMsg('Disconnected') };
+    ws.onerror = () => {
+      console.error(`Connection error: ${host.name}`);
+      browserData.status = 'error';
+      updateBrowserCard(host.url, browserData);
+      updateStats();
+    };
+    
+    ws.onclose = () => {
+      console.log(`Disconnected: ${host.name}`);
+      browserData.status = 'disconnected';
+      updateBrowserCard(host.url, browserData);
+      updateStats();
+    };
+    
+  } catch (err) {
+    console.error(`Failed to connect to ${host.name}:`, err);
+  }
+}
+
+async function validateAndLaunch() {
+  const name = document.getElementById('name').value.trim();
+  const key = document.getElementById('key').value.trim();
+  
+  if (!name || !key) {
+    setStatus("❌ Enter name and key", "error");
+    return;
   }
   
-  connect();
+  userName = name;
+  setStatus("🔍 Validating credentials...", "info");
   
-  document.getElementById('go').onclick = function() {
-    const u = document.getElementById('url').value.trim();
-    if (!u) return;
-    if (ws && ws.readyState===WebSocket.OPEN) {
-      ws.send(JSON.stringify({type:'control', action:'navigate', url: u}));
+  // Validate with first available host
+  let validated = false;
+  for (const host of HOST_POOL) {
+    try {
+      const r = await fetch(host.url + "/validate?name=" + encodeURIComponent(name) + "&key=" + encodeURIComponent(key));
+      const j = await r.json();
+      if (j.valid) {
+        validated = true;
+        break;
+      }
+    } catch (e) {
+      continue;
     }
-  };
+  }
   
-  document.getElementById('url').addEventListener('keydown', function(ev) {
-    if (ev.key === 'Enter') {
-      document.getElementById('go').click();
+  if (!validated) {
+    setStatus("❌ Invalid credentials", "error");
+    return;
+  }
+  
+  setStatus("✅ Launching all browsers in parallel...", "success");
+  
+  // Hide login, show control panel
+  document.getElementById('loginSection').style.display = 'none';
+  document.getElementById('controlPanel').classList.add('active');
+  
+  // Create browser cards and connect to ALL hosts simultaneously
+  const grid = document.getElementById('browserGrid');
+  grid.innerHTML = '';
+  
+  for (const host of HOST_POOL) {
+    grid.appendChild(createBrowserCard(host));
+    connectBrowser(host);
+  }
+  
+  updateStats();
+}
+
+function sendToAll(action, data) {
+  browsers.forEach((browser, hostUrl) => {
+    if (browser.status === 'connected' && browser.ws.readyState === WebSocket.OPEN) {
+      browser.ws.send(JSON.stringify({type:'control', action, ...data}));
+    }
+  });
+}
+
+function openPopup(hostUrl) {
+  const browser = browsers.get(hostUrl);
+  if (!browser || browser.status !== 'connected') {
+    alert('Browser not connected');
+    return;
+  }
+  
+  const popup = window.open('', '_blank', 'width=1366,height=768');
+  if (!popup) {
+    alert('Popup blocked');
+    return;
+  }
+  
+  const wsUrl = hostUrl.replace(/^http/, 'ws') + '/ws';
+  
+  popup.document.write(`<!doctype html>
+<html><head><meta charset="utf-8"><title>${browser.host.name}</title>
+<style>
+body{margin:0;background:#000;color:#fff;font-family:sans-serif;overflow:hidden}
+.bar{background:#111;padding:8px;display:flex;gap:8px}
+.url{flex:1;padding:8px;border-radius:8px;border:1px solid #333;background:#0d0d0d;color:#fff}
+button{padding:8px 16px;border-radius:8px;border:1px solid #333;background:#222;color:#fff;cursor:pointer}
+.view{height:calc(100vh - 48px);display:flex;align-items:center;justify-content:center}
+img{max-width:100%;max-height:100%;object-fit:contain;cursor:crosshair}
+</style></head><body>
+<div class="bar">
+<input id="url" class="url" placeholder="URL">
+<button id="go">Go</button>
+<button id="back">←</button>
+<button id="forward">→</button>
+</div>
+<div id="view" class="view">Loading...</div>
+<script>
+const ws = new WebSocket("${wsUrl}");
+ws.binaryType = 'arraybuffer';
+ws.onopen = () => ws.send(JSON.stringify({type:'control', action:'create', userName:'${userName}'}));
+ws.onmessage = (e) => {
+  if (typeof e.data === 'string') {
+    try {
+      const j = JSON.parse(e.data);
+      if (j.type==='info' && j.action==='created') {
+        ws.send(JSON.stringify({type:'control', action:'startStream'}));
+      }
+    } catch(err) {}
+    return;
+  }
+  const url = URL.createObjectURL(new Blob([e.data], {type:'image/jpeg'}));
+  document.getElementById('view').innerHTML = '<img id="frame" src="'+url+'" tabindex="0">';
+  const img = document.getElementById('frame');
+  img.onclick = (ev) => {
+    const r = img.getBoundingClientRect();
+    const x = Math.round((ev.clientX - r.left) * (1366 / r.width));
+    const y = Math.round((ev.clientY - r.top) * (768 / r.height));
+    ws.send(JSON.stringify({type:'control', action:'click', x, y}));
+    img.focus();
+  };
+  img.addEventListener('keydown', (ev) => {
+    if (ev.key.length === 1) {
+      ws.send(JSON.stringify({type:'control', action:'type', text: ev.key}));
+      ev.preventDefault();
+    } else if (ev.key === 'Enter') {
+      ws.send(JSON.stringify({type:'control', action:'type', text: '\\n'}));
+      ev.preventDefault();
+    }
+  });
+  img.addEventListener('wheel', (ev) => {
+    ws.send(JSON.stringify({type:'control', action:'scroll', dy: ev.deltaY}));
+    ev.preventDefault();
+  }, {passive: false});
+  setTimeout(() => img.focus(), 100);
+};
+document.getElementById('go').onclick = () => {
+  const u = document.getElementById('url').value.trim();
+  if (u) ws.send(JSON.stringify({type:'control', action:'navigate', url: u}));
+};
+document.getElementById('back').onclick = () => ws.send(JSON.stringify({type:'control', action:'back'}));
+document.getElementById('forward').onclick = () => ws.send(JSON.stringify({type:'control', action:'forward'}));
+<\/script></body></html>`);
+  popup.document.close();
+}
+
+window.reconnectBrowser = async (hostUrl) => {
+  closeBrowser(hostUrl);
+  const host = HOST_POOL.find(h => h.url === hostUrl);
+  if (host) {
+    setTimeout(() => connectBrowser(host), 500);
+  }
+};
+
+window.closeBrowser = (hostUrl) => {
+  const browser = browsers.get(hostUrl);
+  if (browser && browser.ws) {
+    try {
+      browser.ws.send(JSON.stringify({type:'control', action:'close'}));
+      browser.ws.close();
+    } catch(e) {}
+  }
+  browsers.delete(hostUrl);
+  updateStats();
+};
+
+window.openPopup = openPopup;
+
+// Wake servers button
+document.getElementById('wakeBtn').addEventListener('click', async () => {
+  setStatus("☕ Waking all servers...", "info");
+  
+  let online = 0;
+  let offline = 0;
+  
+  const checks = HOST_POOL.map(async (host) => {
+    try {
+      const r = await fetch(host.url + "/health", { cache: 'no-store' });
+      const j = await r.json();
+      if (j.status === "ok") {
+        online++;
+        return `✅ ${host.name}: Online`;
+      } else {
+        offline++;
+        return `⚠️ ${host.name}: Not OK`;
+      }
+    } catch (e) {
+      offline++;
+      return `❌ ${host.name}: Offline`;
     }
   });
   
-  document.getElementById('back').onclick = function() {
-    if (ws && ws.readyState===WebSocket.OPEN) {
-      ws.send(JSON.stringify({type:'control', action:'back'}));
-    }
-  };
+  const results = await Promise.all(checks);
+  const summary = results.join('<br>');
   
-  document.getElementById('forward').onclick = function() {
-    if (ws && ws.readyState===WebSocket.OPEN) {
-      ws.send(JSON.stringify({type:'control', action:'forward'}));
-    }
-  };
-</` + `script>
-</body></html>`;
+  setStatus(`<strong>Server Status:</strong><br>${summary}<br><br><strong>Online: ${online} / ${HOST_POOL.length}</strong>`, 
+    online === HOST_POOL.length ? "success" : (online > 0 ? "info" : "error"));
+});
 
-    popup.document.write(popupHTML);
-    popup.document.close();
-    setStatus("✅ Popup opened", "success");
-  } catch (e) {
-    setStatus("❌ Connection failed: " + e.message, "error");
+// Event listeners
+document.getElementById('launchBtn').addEventListener('click', validateAndLaunch);
+
+document.getElementById('globalGo').addEventListener('click', () => {
+  const url = document.getElementById('globalUrl').value.trim();
+  if (url) {
+    sendToAll('navigate', { url });
   }
 });
 </script>
