@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Unified Browser - Multi-Backend</title>
+<title>Parallel Multi-Backend Browser</title>
 <style>
   * { box-sizing: border-box; }
   body { 
@@ -103,8 +103,12 @@
   .top-bar h1 {
     margin:0;
     font-size:18px;
-    color:#4a5de6;
+    background:linear-gradient(135deg,#667eea,#764ba2);
+    -webkit-background-clip:text;
+    -webkit-text-fill-color:transparent;
+    background-clip:text;
     white-space:nowrap;
+    font-weight:900;
   }
   .url-bar {
     flex:1;
@@ -136,10 +140,21 @@
     border-radius:999px;
     background:#2d3748;
     white-space:nowrap;
+    display:flex;
+    align-items:center;
+    gap:4px;
   }
-  .backend-pill.active { background:#1e3d2f; color:#4ade80; }
-  .backend-pill.standby { background:#1e3a5f; color:#60a5fa; }
+  .backend-pill.active { 
+    background:linear-gradient(135deg,#1e3d2f,#2d5a3f); 
+    color:#4ade80;
+    animation: pulse-glow 2s ease-in-out infinite;
+  }
   .backend-pill.error { background:#3d1e1e; color:#f87171; }
+  
+  @keyframes pulse-glow {
+    0%, 100% { box-shadow: 0 0 5px rgba(74,222,128,0.3); }
+    50% { box-shadow: 0 0 15px rgba(74,222,128,0.6); }
+  }
   
   .browser-container {
     flex:1;
@@ -160,8 +175,12 @@
     position:relative;
     overflow:hidden;
     border:3px solid #2d3748;
+    box-shadow:0 10px 40px rgba(0,0,0,0.5);
   }
-  .browser-viewport.active { border-color:#4ade80; box-shadow:0 0 30px rgba(74,222,128,0.3); }
+  .browser-viewport.streaming { 
+    border-color:#4ade80; 
+    box-shadow:0 0 30px rgba(74,222,128,0.3), 0 10px 40px rgba(0,0,0,0.5);
+  }
   .browser-viewport img {
     width:100%;
     height:100%;
@@ -193,9 +212,12 @@
     margin-bottom:5px;
   }
   .info-value {
-    font-size:16px;
+    font-size:20px;
     font-weight:700;
-    color:#4a5de6;
+    background:linear-gradient(135deg,#667eea,#764ba2);
+    -webkit-background-clip:text;
+    -webkit-text-fill-color:transparent;
+    background-clip:text;
   }
   .info-detail {
     font-size:12px;
@@ -204,16 +226,40 @@
   }
   
   .backend-list {
-    margin-top:5px;
+    margin-top:8px;
   }
   .backend-item {
     font-size:11px;
     padding:4px 0;
     display:flex;
     justify-content:space-between;
+    align-items:center;
   }
-  .backend-name { color:#4a5de6; }
+  .backend-name { 
+    color:#4a5de6; 
+    display:flex;
+    align-items:center;
+    gap:5px;
+  }
+  .backend-fps {
+    color:#4ade80;
+    font-weight:700;
+  }
   .backend-latency { color:#888; }
+  
+  .frame-indicator {
+    display:inline-block;
+    width:6px;
+    height:6px;
+    border-radius:50%;
+    background:#4ade80;
+    animation: blink 0.5s ease-in-out infinite;
+  }
+  
+  @keyframes blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+  }
   
   @keyframes pulse {
     0%, 100% { opacity: 1; }
@@ -228,21 +274,21 @@
 
 <div class="login-overlay" id="loginOverlay">
   <div class="login-box">
-    <h1>🚀 Multi-Backend Browser</h1>
-    <div class="subtitle">One browser powered by multiple servers</div>
+    <h1>⚡ Parallel Browser</h1>
+    <div class="subtitle">Multiple backends working together for maximum FPS</div>
     
     <input id="name" placeholder="Your name" value="Alice">
     <input id="key" placeholder="Access key" type="password" value="8392017">
     
     <button id="wakeBtn" style="background:#ffd34d;color:#000">☕ Wake All Servers</button>
-    <button id="launchBtn">🚀 Launch Unified Browser</button>
+    <button id="launchBtn">🚀 Launch Parallel Browser</button>
     <div id="loginStatus" class="status"></div>
   </div>
 </div>
 
 <div class="main-screen" id="mainScreen" style="display:none">
   <div class="top-bar">
-    <h1>🌐 Unified Browser</h1>
+    <h1>⚡ PARALLEL BROWSER</h1>
     <div class="url-bar">
       <input id="globalUrl" placeholder="Navigate to..." value="https://example.com">
       <button id="globalGo">Go</button>
@@ -255,29 +301,29 @@
   
   <div class="browser-container">
     <div class="browser-viewport" id="browserViewport" tabindex="0">
-      <div class="placeholder loading">Initializing browser...</div>
+      <div class="placeholder loading">Initializing parallel rendering...</div>
     </div>
     
     <div class="info-panel">
       <div class="info-card">
-        <div class="info-label">Connection</div>
-        <div class="info-value" id="connectionStatus">Connecting...</div>
-        <div class="info-detail" id="connectionDetail">Establishing connections</div>
+        <div class="info-label">Combined FPS</div>
+        <div class="info-value" id="fps">0</div>
+        <div class="info-detail" id="fpsDetail">Parallel rendering inactive</div>
       </div>
       <div class="info-card">
-        <div class="info-label">Active Backend</div>
-        <div class="info-value" id="activeBackend">None</div>
-        <div class="info-detail" id="activeBackendLatency">-</div>
+        <div class="info-label">Total Bandwidth</div>
+        <div class="info-value" id="bandwidth">0</div>
+        <div class="info-detail">KB/s across all backends</div>
       </div>
       <div class="info-card">
-        <div class="info-label">Redundancy</div>
-        <div class="info-value" id="redundancyCount">0/0</div>
+        <div class="info-label">Parallel Workers</div>
+        <div class="info-value" id="workerCount">0/0</div>
         <div class="backend-list" id="backendList"></div>
       </div>
       <div class="info-card">
-        <div class="info-label">Performance</div>
-        <div class="info-value" id="fps">0 FPS</div>
-        <div class="info-detail" id="bandwidth">0 KB/s</div>
+        <div class="info-label">Frame Distribution</div>
+        <div class="info-value" id="frameDistribution">-</div>
+        <div class="info-detail" id="distributionDetail">Round-robin scheduling</div>
       </div>
     </div>
   </div>
@@ -291,13 +337,17 @@ const HOST_POOL = [
   { name: "Render-3", url: "https://render-repo-f64m.onrender.com" },
 ];
 
-let backends = new Map(); // hostUrl -> { ws, host, status, latency, isActive, frameCount, lastFrameTime }
-let activeBackend = null; // Currently streaming backend
+let backends = new Map(); // hostUrl -> { ws, host, status, latency, frameCount, lastFrameTime, fps }
 let userName = "";
 let lastFrame = null;
-let frameCount = 0;
-let bytesReceived = 0;
+let totalFrameCount = 0;
+let totalBytesReceived = 0;
 let lastStatsUpdate = Date.now();
+
+// Frame buffer for smooth playback
+let frameBuffer = [];
+let maxBufferSize = 10;
+let isPlaying = false;
 
 function setStatus(msg, type) {
   const el = document.getElementById("loginStatus");
@@ -309,19 +359,15 @@ function updateBackendPills() {
   const container = document.getElementById('backendStatus');
   container.innerHTML = '';
   
-  backends.forEach((backend, url) => {
+  const connected = Array.from(backends.values()).filter(b => b.status === 'connected');
+  
+  connected.forEach((backend, idx) => {
     const pill = document.createElement('div');
     pill.className = 'backend-pill';
     
-    if (backend.status === 'connected' && backend.isActive) {
+    if (backend.status === 'connected') {
       pill.className += ' active';
-      pill.textContent = `🟢 ${backend.host.name}`;
-    } else if (backend.status === 'connected') {
-      pill.className += ' standby';
-      pill.textContent = `🔵 ${backend.host.name}`;
-    } else {
-      pill.className += ' error';
-      pill.textContent = `🔴 ${backend.host.name}`;
+      pill.innerHTML = `<span class="frame-indicator"></span>${backend.host.name} (${backend.fps || 0} fps)`;
     }
     
     container.appendChild(pill);
@@ -329,93 +375,83 @@ function updateBackendPills() {
 }
 
 function updateStats() {
-  const connected = Array.from(backends.values()).filter(b => b.status === 'connected').length;
+  const connected = Array.from(backends.values()).filter(b => b.status === 'connected');
   const total = backends.size;
   
-  document.getElementById('redundancyCount').textContent = `${connected}/${total}`;
+  document.getElementById('workerCount').textContent = `${connected.length}/${total}`;
   
-  // Update backend list
+  // Calculate individual backend FPS
+  const now = Date.now();
+  backends.forEach((backend, url) => {
+    if (backend.frameCount > 0 && backend.lastStatsUpdate) {
+      const elapsed = (now - backend.lastStatsUpdate) / 1000;
+      if (elapsed > 1) {
+        backend.fps = Math.round(backend.frameCount / elapsed);
+        backend.frameCount = 0;
+        backend.lastStatsUpdate = now;
+      }
+    }
+  });
+  
+  // Update backend list with individual stats
   const list = document.getElementById('backendList');
   list.innerHTML = '';
   backends.forEach((backend, url) => {
     const item = document.createElement('div');
     item.className = 'backend-item';
+    const status = backend.status === 'connected' ? '🟢' : '🔴';
     item.innerHTML = `
-      <span class="backend-name">${backend.host.name}</span>
-      <span class="backend-latency">${backend.latency ? backend.latency + 'ms' : '-'}</span>
+      <span class="backend-name">${status} ${backend.host.name}</span>
+      <span class="backend-fps">${backend.fps || 0} fps</span>
     `;
     list.appendChild(item);
   });
   
-  // Update active backend display
-  if (activeBackend) {
-    const backend = backends.get(activeBackend);
-    document.getElementById('activeBackend').textContent = backend.host.name;
-    document.getElementById('activeBackendLatency').textContent = `${backend.latency}ms latency`;
-  } else {
-    document.getElementById('activeBackend').textContent = 'None';
-    document.getElementById('activeBackendLatency').textContent = 'Selecting...';
-  }
-  
-  // Calculate FPS and bandwidth
-  const now = Date.now();
+  // Calculate combined FPS and bandwidth
   const elapsed = (now - lastStatsUpdate) / 1000;
   if (elapsed > 1) {
-    const fps = Math.round(frameCount / elapsed);
-    const kbps = Math.round((bytesReceived / 1024) / elapsed);
+    const combinedFps = Math.round(totalFrameCount / elapsed);
+    const kbps = Math.round((totalBytesReceived / 1024) / elapsed);
     
-    document.getElementById('fps').textContent = `${fps} FPS`;
+    document.getElementById('fps').textContent = combinedFps;
+    document.getElementById('fpsDetail').textContent = `${connected.length} backends rendering in parallel`;
     document.getElementById('bandwidth').textContent = `${kbps} KB/s`;
     
-    frameCount = 0;
-    bytesReceived = 0;
+    // Calculate frame distribution
+    const perBackend = connected.length > 0 ? Math.round(combinedFps / connected.length) : 0;
+    document.getElementById('frameDistribution').textContent = `~${perBackend} fps`;
+    document.getElementById('distributionDetail').textContent = `per backend (${connected.length}x multiplier)`;
+    
+    totalFrameCount = 0;
+    totalBytesReceived = 0;
     lastStatsUpdate = now;
   }
   
   updateBackendPills();
 }
 
-function selectActiveBackend() {
-  // Select backend with lowest latency that's connected
-  let bestBackend = null;
-  let bestLatency = Infinity;
-  
-  backends.forEach((backend, url) => {
-    if (backend.status === 'connected' && backend.latency && backend.latency < bestLatency) {
-      bestLatency = backend.latency;
-      bestBackend = url;
+// Frame display with buffering for smooth playback
+function displayNextFrame() {
+  if (frameBuffer.length > 0) {
+    const frame = frameBuffer.shift();
+    
+    const viewport = document.getElementById('browserViewport');
+    viewport.innerHTML = `<img src="${frame}" alt="Browser">`;
+    viewport.classList.add('streaming');
+    
+    // Cleanup old frame
+    if (lastFrame && lastFrame !== frame) {
+      setTimeout(() => URL.revokeObjectURL(lastFrame), 1000);
     }
-  });
-  
-  if (bestBackend && bestBackend !== activeBackend) {
-    // Stop old active backend streaming
-    if (activeBackend) {
-      const oldBackend = backends.get(activeBackend);
-      if (oldBackend) {
-        oldBackend.isActive = false;
-        // Keep connection alive but stop streaming
-      }
-    }
-    
-    // Start new backend streaming
-    activeBackend = bestBackend;
-    const newBackend = backends.get(bestBackend);
-    newBackend.isActive = true;
-    
-    if (newBackend.ws.readyState === WebSocket.OPEN) {
-      newBackend.ws.send(JSON.stringify({type:'control', action:'startStream'}));
-    }
-    
-    console.log(`✅ Switched active backend to ${newBackend.host.name}`);
-    document.getElementById('connectionStatus').textContent = 'Connected';
-    document.getElementById('connectionDetail').textContent = `Streaming from ${newBackend.host.name}`;
-    
-    updateStats();
+    lastFrame = frame;
   }
+  
+  // Continue playback loop
+  requestAnimationFrame(displayNextFrame);
 }
 
 function sendCommand(action, data) {
-  // Send command to ALL connected backends for redundancy
+  // Send command to ALL backends - they all stay in sync
   let sent = 0;
   backends.forEach((backend, url) => {
     if (backend.status === 'connected' && backend.ws.readyState === WebSocket.OPEN) {
@@ -441,9 +477,10 @@ async function connectBackend(host) {
       host: host,
       status: 'connecting',
       latency: null,
-      isActive: false,
       frameCount: 0,
       lastFrameTime: null,
+      lastStatsUpdate: Date.now(),
+      fps: 0,
       startTime: Date.now()
     };
     
@@ -464,9 +501,13 @@ async function connectBackend(host) {
             backendData.latency = Date.now() - backendData.startTime;
             console.log(`✅ ${host.name} authenticated (${backendData.latency}ms)`);
             
-            // If no active backend, make this one active
-            if (!activeBackend) {
-              selectActiveBackend();
+            // Start streaming immediately
+            ws.send(JSON.stringify({type:'control', action:'startStream'}));
+            
+            // Start frame display loop if not already running
+            if (!isPlaying) {
+              isPlaying = true;
+              displayNextFrame();
             }
             
             updateStats();
@@ -480,29 +521,29 @@ async function connectBackend(host) {
         return;
       }
       
-      // Only accept frames from active backend
-      if (!backendData.isActive) return;
-      
-      // Handle frame
+      // Handle frame from ANY backend - all frames are used!
       const blob = new Blob([e.data], { type: 'image/jpeg' });
       const url = URL.createObjectURL(blob);
       
-      // Update display
-      const viewport = document.getElementById('browserViewport');
-      viewport.innerHTML = `<img src="${url}" alt="Browser">`;
-      viewport.classList.add('active');
-      
-      // Cleanup old frame
-      if (lastFrame) {
-        URL.revokeObjectURL(lastFrame);
+      // Add to frame buffer (bounded to prevent memory issues)
+      if (frameBuffer.length < maxBufferSize) {
+        frameBuffer.push(url);
+      } else {
+        // Buffer full, drop oldest frame
+        const oldFrame = frameBuffer.shift();
+        URL.revokeObjectURL(oldFrame);
+        frameBuffer.push(url);
       }
-      lastFrame = url;
       
       // Update stats
       backendData.frameCount++;
       backendData.lastFrameTime = Date.now();
-      frameCount++;
-      bytesReceived += e.data.byteLength;
+      totalFrameCount++;
+      totalBytesReceived += e.data.byteLength;
+      
+      if (!backendData.lastStatsUpdate) {
+        backendData.lastStatsUpdate = Date.now();
+      }
       
       updateStats();
     };
@@ -511,24 +552,12 @@ async function connectBackend(host) {
       console.error(`Connection error: ${host.name}`);
       backendData.status = 'error';
       updateStats();
-      
-      // Failover to another backend if this was active
-      if (backendData.isActive) {
-        activeBackend = null;
-        selectActiveBackend();
-      }
     };
     
     ws.onclose = () => {
       console.log(`Disconnected: ${host.name}`);
       backendData.status = 'disconnected';
       updateStats();
-      
-      // Failover
-      if (backendData.isActive) {
-        activeBackend = null;
-        selectActiveBackend();
-      }
       
       // Auto-reconnect after 5 seconds
       setTimeout(() => {
@@ -578,7 +607,7 @@ async function validateAndLaunch() {
   document.getElementById('loginOverlay').classList.add('hidden');
   document.getElementById('mainScreen').style.display = 'flex';
   
-  // Connect to ALL backends
+  // Connect to ALL backends - they all contribute frames in parallel!
   for (const host of HOST_POOL) {
     connectBackend(host);
   }
@@ -696,6 +725,9 @@ document.addEventListener('keydown', (e) => {
 setTimeout(() => {
   viewport.focus();
 }, 1000);
+
+// Stats update loop
+setInterval(updateStats, 1000);
 </script>
 </body>
 </html>
