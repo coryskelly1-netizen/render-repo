@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Unified Multi-Browser System</title>
+<title>Unified Browser - Multi-Backend</title>
 <style>
   * { box-sizing: border-box; }
   body { 
@@ -115,7 +115,7 @@
     flex:1;
     margin:0;
     padding:10px;
-    font-size:13px;
+    font-size:14px;
   }
   .url-bar button {
     width:auto;
@@ -123,108 +123,104 @@
     padding:10px 20px;
     font-size:13px;
   }
-  .stats-bar {
-    display:flex;
-    gap:15px;
-    font-size:12px;
-    margin-left:auto;
-    padding-left:20px;
-  }
-  .stat {
-    white-space:nowrap;
-  }
-  .stat-value {
-    color:#4a5de6;
-    font-weight:700;
-  }
   
-  .browser-grid-container {
-    flex:1;
-    padding:10px;
-    overflow:auto;
-  }
-  .browser-grid {
-    display:grid;
-    grid-template-columns:repeat(auto-fit, minmax(400px, 1fr));
-    gap:10px;
-    height:100%;
-  }
-  
-  .browser-frame {
-    background:#000;
-    border-radius:8px;
-    overflow:hidden;
+  .backend-status {
     display:flex;
-    flex-direction:column;
-    border:2px solid #2d3748;
-    transition:border-color 0.3s;
-  }
-  .browser-frame.connected { border-color:#4ade80; }
-  .browser-frame.error { border-color:#f87171; }
-  .browser-frame.active { border-color:#4a5de6; box-shadow:0 0 20px rgba(74,93,230,0.4); }
-  
-  .frame-header {
-    background:#1a1f3a;
-    padding:8px 12px;
-    display:flex;
-    justify-content:space-between;
+    gap:8px;
     align-items:center;
-    flex-shrink:0;
+    margin-left:auto;
+    font-size:11px;
   }
-  .frame-title {
-    font-size:12px;
-    font-weight:700;
-    color:#4a5de6;
-  }
-  .frame-status {
-    font-size:10px;
-    padding:3px 8px;
+  .backend-pill {
+    padding:4px 10px;
     border-radius:999px;
     background:#2d3748;
+    white-space:nowrap;
   }
-  .frame-status.online { background:#1e3d2f; color:#4ade80; }
-  .frame-status.offline { background:#3d1e1e; color:#f87171; }
+  .backend-pill.active { background:#1e3d2f; color:#4ade80; }
+  .backend-pill.standby { background:#1e3a5f; color:#60a5fa; }
+  .backend-pill.error { background:#3d1e1e; color:#f87171; }
   
-  .frame-viewport {
+  .browser-container {
     flex:1;
-    position:relative;
+    display:flex;
+    flex-direction:column;
+    padding:20px;
+    overflow:hidden;
+  }
+  
+  .browser-viewport {
+    flex:1;
+    background:#000;
+    border-radius:12px;
     display:flex;
     align-items:center;
     justify-content:center;
     cursor:crosshair;
-    min-height:300px;
+    position:relative;
     overflow:hidden;
+    border:3px solid #2d3748;
   }
-  .frame-viewport img {
+  .browser-viewport.active { border-color:#4ade80; box-shadow:0 0 30px rgba(74,222,128,0.3); }
+  .browser-viewport img {
     width:100%;
     height:100%;
     object-fit:contain;
     display:block;
   }
-  .frame-viewport .placeholder {
+  .browser-viewport .placeholder {
     color:#666;
-    font-size:13px;
+    font-size:16px;
     text-align:center;
   }
   
-  .frame-controls {
-    background:#0f1419;
-    padding:6px;
-    display:flex;
-    gap:4px;
-    flex-shrink:0;
+  .info-panel {
+    margin-top:15px;
+    display:grid;
+    grid-template-columns:repeat(auto-fit, minmax(200px, 1fr));
+    gap:10px;
   }
-  .frame-controls button {
-    flex:1;
-    margin:0;
-    padding:6px;
+  .info-card {
+    background:#1a1f3a;
+    padding:15px;
+    border-radius:8px;
+    border:1px solid #2d3748;
+  }
+  .info-label {
     font-size:11px;
+    color:#888;
+    text-transform:uppercase;
+    margin-bottom:5px;
+  }
+  .info-value {
+    font-size:16px;
+    font-weight:700;
+    color:#4a5de6;
+  }
+  .info-detail {
+    font-size:12px;
+    color:#aaa;
+    margin-top:3px;
   }
   
-  @media (max-width: 1200px) {
-    .browser-grid {
-      grid-template-columns:repeat(auto-fit, minmax(300px, 1fr));
-    }
+  .backend-list {
+    margin-top:5px;
+  }
+  .backend-item {
+    font-size:11px;
+    padding:4px 0;
+    display:flex;
+    justify-content:space-between;
+  }
+  .backend-name { color:#4a5de6; }
+  .backend-latency { color:#888; }
+  
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+  }
+  .loading {
+    animation: pulse 2s ease-in-out infinite;
   }
 </style>
 </head>
@@ -232,50 +228,76 @@
 
 <div class="login-overlay" id="loginOverlay">
   <div class="login-box">
-    <h1>⚡ Multi-Browser Control</h1>
-    <div class="subtitle">Control all browsers simultaneously</div>
+    <h1>🚀 Multi-Backend Browser</h1>
+    <div class="subtitle">One browser powered by multiple servers</div>
     
     <input id="name" placeholder="Your name" value="Alice">
     <input id="key" placeholder="Access key" type="password" value="8392017">
     
     <button id="wakeBtn" style="background:#ffd34d;color:#000">☕ Wake All Servers</button>
-    <button id="launchBtn">🚀 Launch All Browsers</button>
+    <button id="launchBtn">🚀 Launch Unified Browser</button>
     <div id="loginStatus" class="status"></div>
   </div>
 </div>
 
 <div class="main-screen" id="mainScreen" style="display:none">
   <div class="top-bar">
-    <h1>⚡ Multi-Browser Control</h1>
+    <h1>🌐 Unified Browser</h1>
     <div class="url-bar">
-      <input id="globalUrl" placeholder="Navigate all browsers to...">
-      <button id="globalGo">Go All</button>
-      <button id="globalBack">← Back</button>
-      <button id="globalForward">Forward →</button>
+      <input id="globalUrl" placeholder="Navigate to..." value="https://example.com">
+      <button id="globalGo">Go</button>
+      <button id="globalBack">←</button>
+      <button id="globalForward">→</button>
+      <button id="globalRefresh">🔄</button>
     </div>
-    <div class="stats-bar">
-      <div class="stat">Total: <span class="stat-value" id="statTotal">0</span></div>
-      <div class="stat">Online: <span class="stat-value" id="statOnline">0</span></div>
-      <div class="stat">Latency: <span class="stat-value" id="statLatency">0ms</span></div>
-    </div>
+    <div class="backend-status" id="backendStatus"></div>
   </div>
   
-  <div class="browser-grid-container">
-    <div class="browser-grid" id="browserGrid"></div>
+  <div class="browser-container">
+    <div class="browser-viewport" id="browserViewport" tabindex="0">
+      <div class="placeholder loading">Initializing browser...</div>
+    </div>
+    
+    <div class="info-panel">
+      <div class="info-card">
+        <div class="info-label">Connection</div>
+        <div class="info-value" id="connectionStatus">Connecting...</div>
+        <div class="info-detail" id="connectionDetail">Establishing connections</div>
+      </div>
+      <div class="info-card">
+        <div class="info-label">Active Backend</div>
+        <div class="info-value" id="activeBackend">None</div>
+        <div class="info-detail" id="activeBackendLatency">-</div>
+      </div>
+      <div class="info-card">
+        <div class="info-label">Redundancy</div>
+        <div class="info-value" id="redundancyCount">0/0</div>
+        <div class="backend-list" id="backendList"></div>
+      </div>
+      <div class="info-card">
+        <div class="info-label">Performance</div>
+        <div class="info-value" id="fps">0 FPS</div>
+        <div class="info-detail" id="bandwidth">0 KB/s</div>
+      </div>
+    </div>
   </div>
 </div>
 
 <script>
-// Add your hosting URLs here
+// Backend server pool
 const HOST_POOL = [
   { name: "Render-1", url: "https://render-repo-1-yto6.onrender.com" },
   { name: "Render-2", url: "https://render-repo-0x73.onrender.com" },
   { name: "Render-3", url: "https://render-repo-f64m.onrender.com" },
 ];
 
-let browsers = new Map(); // hostUrl -> { ws, status, latency, lastFrame, element }
+let backends = new Map(); // hostUrl -> { ws, host, status, latency, isActive, frameCount, lastFrameTime }
+let activeBackend = null; // Currently streaming backend
 let userName = "";
-let activeBrowser = null;
+let lastFrame = null;
+let frameCount = 0;
+let bytesReceived = 0;
+let lastStatsUpdate = Date.now();
 
 function setStatus(msg, type) {
   const el = document.getElementById("loginStatus");
@@ -283,148 +305,153 @@ function setStatus(msg, type) {
   el.className = "status show " + (type||"");
 }
 
-function updateStats() {
-  const total = browsers.size;
-  const online = Array.from(browsers.values()).filter(b => b.status === 'connected').length;
-  const latencies = Array.from(browsers.values()).filter(b => b.latency).map(b => b.latency);
-  const avgLatency = latencies.length ? Math.round(latencies.reduce((a,b)=>a+b,0) / latencies.length) : 0;
+function updateBackendPills() {
+  const container = document.getElementById('backendStatus');
+  container.innerHTML = '';
   
-  document.getElementById('statTotal').textContent = total;
-  document.getElementById('statOnline').textContent = online;
-  document.getElementById('statLatency').textContent = avgLatency + 'ms';
-}
-
-function createBrowserFrame(host) {
-  const frame = document.createElement('div');
-  frame.className = 'browser-frame';
-  frame.id = 'frame-' + host.url.replace(/[^a-z0-9]/gi, '');
-  
-  frame.innerHTML = `
-    <div class="frame-header">
-      <div class="frame-title">${host.name}</div>
-      <div class="frame-status">connecting...</div>
-    </div>
-    <div class="frame-viewport">
-      <div class="placeholder">Connecting...</div>
-    </div>
-    <div class="frame-controls">
-      <button onclick="focusBrowser('${host.url}')">🎯 Focus</button>
-      <button onclick="reconnectBrowser('${host.url}')">🔄 Reconnect</button>
-      <button onclick="closeBrowser('${host.url}')">❌ Close</button>
-    </div>
-  `;
-  
-  // Click to focus and interact
-  const viewport = frame.querySelector('.frame-viewport');
-  viewport.onclick = (e) => {
-    if (e.target.tagName === 'IMG') {
-      focusBrowser(host.url);
-      handleClick(host.url, e);
-    }
-  };
-  
-  // Keyboard input when focused
-  viewport.setAttribute('tabindex', '0');
-  viewport.onkeydown = (e) => {
-    const browser = browsers.get(host.url);
-    if (!browser || browser.status !== 'connected') return;
+  backends.forEach((backend, url) => {
+    const pill = document.createElement('div');
+    pill.className = 'backend-pill';
     
-    if (e.key.length === 1) {
-      browser.ws.send(JSON.stringify({type:'control', action:'type', text: e.key}));
-      e.preventDefault();
-    } else if (e.key === 'Enter') {
-      browser.ws.send(JSON.stringify({type:'control', action:'type', text: '\n'}));
-      e.preventDefault();
+    if (backend.status === 'connected' && backend.isActive) {
+      pill.className += ' active';
+      pill.textContent = `🟢 ${backend.host.name}`;
+    } else if (backend.status === 'connected') {
+      pill.className += ' standby';
+      pill.textContent = `🔵 ${backend.host.name}`;
+    } else {
+      pill.className += ' error';
+      pill.textContent = `🔴 ${backend.host.name}`;
     }
-  };
-  
-  // Scroll support
-  viewport.addEventListener('wheel', (e) => {
-    const browser = browsers.get(host.url);
-    if (!browser || browser.status !== 'connected') return;
-    browser.ws.send(JSON.stringify({type:'control', action:'scroll', dy: e.deltaY}));
-    e.preventDefault();
-  }, {passive: false});
-  
-  return frame;
+    
+    container.appendChild(pill);
+  });
 }
 
-function handleClick(hostUrl, e) {
-  const browser = browsers.get(hostUrl);
-  if (!browser || browser.status !== 'connected') return;
+function updateStats() {
+  const connected = Array.from(backends.values()).filter(b => b.status === 'connected').length;
+  const total = backends.size;
   
-  const img = e.target;
-  const rect = img.getBoundingClientRect();
-  const x = Math.round((e.clientX - rect.left) * (1366 / rect.width));
-  const y = Math.round((e.clientY - rect.top) * (768 / rect.height));
+  document.getElementById('redundancyCount').textContent = `${connected}/${total}`;
   
-  browser.ws.send(JSON.stringify({type:'control', action:'click', x, y}));
-}
-
-function updateBrowserFrame(hostUrl, data) {
-  const frameId = 'frame-' + hostUrl.replace(/[^a-z0-9]/gi, '');
-  const frame = document.getElementById(frameId);
-  if (!frame) return;
-  
-  const statusEl = frame.querySelector('.frame-status');
-  const viewportEl = frame.querySelector('.frame-viewport');
-  
-  if (data.status === 'connected') {
-    frame.className = 'browser-frame connected' + (activeBrowser === hostUrl ? ' active' : '');
-    statusEl.className = 'frame-status online';
-    statusEl.textContent = `online (${data.latency}ms)`;
-  } else if (data.status === 'error') {
-    frame.className = 'browser-frame error';
-    statusEl.className = 'frame-status offline';
-    statusEl.textContent = 'offline';
-    viewportEl.innerHTML = '<div class="placeholder">Disconnected</div>';
-  } else {
-    statusEl.textContent = data.status;
-  }
-  
-  if (data.lastFrame) {
-    viewportEl.innerHTML = `<img src="${data.lastFrame}" alt="${data.host.name}">`;
-  }
-}
-
-function focusBrowser(hostUrl) {
-  activeBrowser = hostUrl;
-  
-  // Update visual states
-  document.querySelectorAll('.browser-frame').forEach(f => {
-    f.classList.remove('active');
+  // Update backend list
+  const list = document.getElementById('backendList');
+  list.innerHTML = '';
+  backends.forEach((backend, url) => {
+    const item = document.createElement('div');
+    item.className = 'backend-item';
+    item.innerHTML = `
+      <span class="backend-name">${backend.host.name}</span>
+      <span class="backend-latency">${backend.latency ? backend.latency + 'ms' : '-'}</span>
+    `;
+    list.appendChild(item);
   });
   
-  const frameId = 'frame-' + hostUrl.replace(/[^a-z0-9]/gi, '');
-  const frame = document.getElementById(frameId);
-  if (frame) {
-    frame.classList.add('active');
-    const viewport = frame.querySelector('.frame-viewport');
-    viewport.focus();
+  // Update active backend display
+  if (activeBackend) {
+    const backend = backends.get(activeBackend);
+    document.getElementById('activeBackend').textContent = backend.host.name;
+    document.getElementById('activeBackendLatency').textContent = `${backend.latency}ms latency`;
+  } else {
+    document.getElementById('activeBackend').textContent = 'None';
+    document.getElementById('activeBackendLatency').textContent = 'Selecting...';
+  }
+  
+  // Calculate FPS and bandwidth
+  const now = Date.now();
+  const elapsed = (now - lastStatsUpdate) / 1000;
+  if (elapsed > 1) {
+    const fps = Math.round(frameCount / elapsed);
+    const kbps = Math.round((bytesReceived / 1024) / elapsed);
+    
+    document.getElementById('fps').textContent = `${fps} FPS`;
+    document.getElementById('bandwidth').textContent = `${kbps} KB/s`;
+    
+    frameCount = 0;
+    bytesReceived = 0;
+    lastStatsUpdate = now;
+  }
+  
+  updateBackendPills();
+}
+
+function selectActiveBackend() {
+  // Select backend with lowest latency that's connected
+  let bestBackend = null;
+  let bestLatency = Infinity;
+  
+  backends.forEach((backend, url) => {
+    if (backend.status === 'connected' && backend.latency && backend.latency < bestLatency) {
+      bestLatency = backend.latency;
+      bestBackend = url;
+    }
+  });
+  
+  if (bestBackend && bestBackend !== activeBackend) {
+    // Stop old active backend streaming
+    if (activeBackend) {
+      const oldBackend = backends.get(activeBackend);
+      if (oldBackend) {
+        oldBackend.isActive = false;
+        // Keep connection alive but stop streaming
+      }
+    }
+    
+    // Start new backend streaming
+    activeBackend = bestBackend;
+    const newBackend = backends.get(bestBackend);
+    newBackend.isActive = true;
+    
+    if (newBackend.ws.readyState === WebSocket.OPEN) {
+      newBackend.ws.send(JSON.stringify({type:'control', action:'startStream'}));
+    }
+    
+    console.log(`✅ Switched active backend to ${newBackend.host.name}`);
+    document.getElementById('connectionStatus').textContent = 'Connected';
+    document.getElementById('connectionDetail').textContent = `Streaming from ${newBackend.host.name}`;
+    
+    updateStats();
   }
 }
 
-async function connectBrowser(host) {
+function sendCommand(action, data) {
+  // Send command to ALL connected backends for redundancy
+  let sent = 0;
+  backends.forEach((backend, url) => {
+    if (backend.status === 'connected' && backend.ws.readyState === WebSocket.OPEN) {
+      backend.ws.send(JSON.stringify({type:'control', action, ...data}));
+      sent++;
+    }
+  });
+  
+  if (sent === 0) {
+    console.warn('No backends available to send command');
+  }
+}
+
+async function connectBackend(host) {
   const wsUrl = host.url.replace(/^http/, 'ws') + '/ws';
   
   try {
     const ws = new WebSocket(wsUrl);
     ws.binaryType = 'arraybuffer';
     
-    const browserData = {
+    const backendData = {
       ws: ws,
       host: host,
       status: 'connecting',
       latency: null,
-      lastFrame: null,
+      isActive: false,
+      frameCount: 0,
+      lastFrameTime: null,
       startTime: Date.now()
     };
     
-    browsers.set(host.url, browserData);
+    backends.set(host.url, backendData);
     
     ws.onopen = () => {
       console.log(`✅ Connected to ${host.name}`);
-      browserData.status = 'authenticating';
+      backendData.status = 'authenticating';
       ws.send(JSON.stringify({type:'control', action:'create', userName: userName}));
     };
     
@@ -433,46 +460,81 @@ async function connectBrowser(host) {
         try {
           const j = JSON.parse(e.data);
           if (j.type === 'info' && j.action === 'created') {
-            browserData.status = 'connected';
-            browserData.latency = Date.now() - browserData.startTime;
-            ws.send(JSON.stringify({type:'control', action:'startStream'}));
-            updateBrowserFrame(host.url, browserData);
+            backendData.status = 'connected';
+            backendData.latency = Date.now() - backendData.startTime;
+            console.log(`✅ ${host.name} authenticated (${backendData.latency}ms)`);
+            
+            // If no active backend, make this one active
+            if (!activeBackend) {
+              selectActiveBackend();
+            }
+            
             updateStats();
           }
           if (j.type === 'error') {
             console.error(`Error from ${host.name}:`, j.message);
-            browserData.status = 'error';
-            updateBrowserFrame(host.url, browserData);
+            backendData.status = 'error';
+            updateStats();
           }
         } catch (err) {}
         return;
       }
       
+      // Only accept frames from active backend
+      if (!backendData.isActive) return;
+      
       // Handle frame
       const blob = new Blob([e.data], { type: 'image/jpeg' });
       const url = URL.createObjectURL(blob);
       
-      // Revoke old frame
-      if (browserData.lastFrame) {
-        URL.revokeObjectURL(browserData.lastFrame);
-      }
+      // Update display
+      const viewport = document.getElementById('browserViewport');
+      viewport.innerHTML = `<img src="${url}" alt="Browser">`;
+      viewport.classList.add('active');
       
-      browserData.lastFrame = url;
-      updateBrowserFrame(host.url, browserData);
+      // Cleanup old frame
+      if (lastFrame) {
+        URL.revokeObjectURL(lastFrame);
+      }
+      lastFrame = url;
+      
+      // Update stats
+      backendData.frameCount++;
+      backendData.lastFrameTime = Date.now();
+      frameCount++;
+      bytesReceived += e.data.byteLength;
+      
+      updateStats();
     };
     
-    ws.onerror = () => {
+    ws.onerror = (err) => {
       console.error(`Connection error: ${host.name}`);
-      browserData.status = 'error';
-      updateBrowserFrame(host.url, browserData);
+      backendData.status = 'error';
       updateStats();
+      
+      // Failover to another backend if this was active
+      if (backendData.isActive) {
+        activeBackend = null;
+        selectActiveBackend();
+      }
     };
     
     ws.onclose = () => {
       console.log(`Disconnected: ${host.name}`);
-      browserData.status = 'disconnected';
-      updateBrowserFrame(host.url, browserData);
+      backendData.status = 'disconnected';
       updateStats();
+      
+      // Failover
+      if (backendData.isActive) {
+        activeBackend = null;
+        selectActiveBackend();
+      }
+      
+      // Auto-reconnect after 5 seconds
+      setTimeout(() => {
+        console.log(`Reconnecting to ${host.name}...`);
+        connectBackend(host);
+      }, 5000);
     };
     
   } catch (err) {
@@ -516,55 +578,13 @@ async function validateAndLaunch() {
   document.getElementById('loginOverlay').classList.add('hidden');
   document.getElementById('mainScreen').style.display = 'flex';
   
-  // Create browser frames and connect to ALL hosts simultaneously
-  const grid = document.getElementById('browserGrid');
-  grid.innerHTML = '';
-  
+  // Connect to ALL backends
   for (const host of HOST_POOL) {
-    grid.appendChild(createBrowserFrame(host));
-    connectBrowser(host);
+    connectBackend(host);
   }
   
   updateStats();
 }
-
-function sendToAll(action, data) {
-  browsers.forEach((browser, hostUrl) => {
-    if (browser.status === 'connected' && browser.ws.readyState === WebSocket.OPEN) {
-      browser.ws.send(JSON.stringify({type:'control', action, ...data}));
-    }
-  });
-}
-
-window.reconnectBrowser = async (hostUrl) => {
-  closeBrowser(hostUrl);
-  const host = HOST_POOL.find(h => h.url === hostUrl);
-  if (host) {
-    setTimeout(() => connectBrowser(host), 500);
-  }
-};
-
-window.closeBrowser = (hostUrl) => {
-  const browser = browsers.get(hostUrl);
-  if (browser && browser.ws) {
-    try {
-      browser.ws.send(JSON.stringify({type:'control', action:'close'}));
-      browser.ws.close();
-    } catch(e) {}
-    if (browser.lastFrame) {
-      URL.revokeObjectURL(browser.lastFrame);
-    }
-  }
-  browsers.delete(hostUrl);
-  updateStats();
-  
-  // Remove frame from grid
-  const frameId = 'frame-' + hostUrl.replace(/[^a-z0-9]/gi, '');
-  const frame = document.getElementById(frameId);
-  if (frame) frame.remove();
-};
-
-window.focusBrowser = focusBrowser;
 
 // Wake servers button
 document.getElementById('wakeBtn').addEventListener('click', async () => {
@@ -586,7 +606,7 @@ document.getElementById('wakeBtn').addEventListener('click', async () => {
       }
     } catch (e) {
       offline++;
-      return `❌ ${host.name}: Offline`;
+      return `❌ ${host.name}: Offline (cold start)`;
     }
   });
   
@@ -606,28 +626,76 @@ document.getElementById('globalGo').addEventListener('click', () => {
     if (!/^https?:\/\//i.test(url)) {
       url = 'https://' + url;
     }
-    sendToAll('navigate', { url });
+    sendCommand('navigate', { url });
   }
 });
 
 document.getElementById('globalBack').addEventListener('click', () => {
-  sendToAll('back', {});
+  sendCommand('back', {});
 });
 
 document.getElementById('globalForward').addEventListener('click', () => {
-  sendToAll('forward', {});
+  sendCommand('forward', {});
 });
+
+document.getElementById('globalRefresh').addEventListener('click', () => {
+  const url = document.getElementById('globalUrl').value.trim();
+  if (url) {
+    sendCommand('navigate', { url });
+  }
+});
+
+// Viewport interactions
+const viewport = document.getElementById('browserViewport');
+
+viewport.addEventListener('click', (e) => {
+  if (e.target.tagName !== 'IMG') return;
+  
+  const img = e.target;
+  const rect = img.getBoundingClientRect();
+  const x = Math.round((e.clientX - rect.left) * (1366 / rect.width));
+  const y = Math.round((e.clientY - rect.top) * (768 / rect.height));
+  
+  sendCommand('click', { x, y });
+  viewport.focus();
+});
+
+viewport.addEventListener('keydown', (e) => {
+  if (e.key.length === 1) {
+    sendCommand('type', { text: e.key });
+    e.preventDefault();
+  } else if (e.key === 'Enter') {
+    sendCommand('type', { text: '\n' });
+    e.preventDefault();
+  } else if (e.key === 'Backspace') {
+    sendCommand('type', { text: '\b' });
+    e.preventDefault();
+  }
+});
+
+viewport.addEventListener('wheel', (e) => {
+  sendCommand('scroll', { dy: e.deltaY });
+  e.preventDefault();
+}, { passive: false });
 
 // Global keyboard shortcuts
 document.addEventListener('keydown', (e) => {
-  // Ctrl/Cmd + Enter to navigate
-  if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
-    const urlInput = document.getElementById('globalUrl');
-    if (document.activeElement === urlInput) {
-      document.getElementById('globalGo').click();
-    }
+  if ((e.ctrlKey || e.metaKey) && e.key === 'l') {
+    e.preventDefault();
+    document.getElementById('globalUrl').focus();
+    document.getElementById('globalUrl').select();
+  }
+  
+  if ((e.ctrlKey || e.metaKey) && e.key === 'r') {
+    e.preventDefault();
+    document.getElementById('globalRefresh').click();
   }
 });
+
+// Auto-focus viewport on load
+setTimeout(() => {
+  viewport.focus();
+}, 1000);
 </script>
 </body>
 </html>
