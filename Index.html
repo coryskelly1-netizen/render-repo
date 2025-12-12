@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Parallel Multi-Backend Browser</title>
+<title>Split-Screen Parallel Browser</title>
 <style>
   * { box-sizing: border-box; }
   body { 
@@ -99,6 +99,7 @@
     gap:10px;
     border-bottom:2px solid #2d3748;
     flex-shrink:0;
+    z-index:100;
   }
   .top-bar h1 {
     margin:0;
@@ -128,145 +129,127 @@
     font-size:13px;
   }
   
-  .backend-status {
+  .mode-toggle {
     display:flex;
-    gap:8px;
-    align-items:center;
-    margin-left:auto;
+    gap:5px;
+    background:#0f1419;
+    padding:3px;
+    border-radius:8px;
+  }
+  .mode-btn {
+    padding:6px 12px;
     font-size:11px;
+    border-radius:6px;
+    background:transparent;
+    margin:0;
+    width:auto;
   }
-  .backend-pill {
-    padding:4px 10px;
-    border-radius:999px;
-    background:#2d3748;
-    white-space:nowrap;
-    display:flex;
-    align-items:center;
-    gap:4px;
+  .mode-btn.active {
+    background:#4a5de6;
   }
-  .backend-pill.active { 
-    background:linear-gradient(135deg,#1e3d2f,#2d5a3f); 
-    color:#4ade80;
-    animation: pulse-glow 2s ease-in-out infinite;
-  }
-  .backend-pill.error { background:#3d1e1e; color:#f87171; }
   
-  @keyframes pulse-glow {
-    0%, 100% { box-shadow: 0 0 5px rgba(74,222,128,0.3); }
-    50% { box-shadow: 0 0 15px rgba(74,222,128,0.6); }
+  .stats-mini {
+    font-size:11px;
+    color:#888;
+    display:flex;
+    gap:15px;
+  }
+  .stat-mini {
+    white-space:nowrap;
+  }
+  .stat-mini span {
+    color:#4ade80;
+    font-weight:700;
   }
   
   .browser-container {
     flex:1;
-    display:flex;
-    flex-direction:column;
-    padding:20px;
+    position:relative;
     overflow:hidden;
   }
   
-  .browser-viewport {
-    flex:1;
+  /* Composite Canvas Mode */
+  .composite-view {
+    width:100%;
+    height:100%;
+    position:relative;
     background:#000;
-    border-radius:12px;
-    display:flex;
-    align-items:center;
-    justify-content:center;
+  }
+  .composite-canvas {
+    position:absolute;
+    top:50%;
+    left:50%;
+    transform:translate(-50%, -50%);
+    max-width:100%;
+    max-height:100%;
+    object-fit:contain;
     cursor:crosshair;
+  }
+  
+  /* Split Screen Mode */
+  .split-view {
+    width:100%;
+    height:100%;
+    display:grid;
+    gap:2px;
+    background:#2d3748;
+    padding:2px;
+  }
+  .split-view.cols-1 { grid-template-columns: 1fr; }
+  .split-view.cols-2 { grid-template-columns: 1fr 1fr; }
+  .split-view.cols-3 { grid-template-columns: 1fr 1fr 1fr; }
+  
+  .split-pane {
+    background:#000;
     position:relative;
     overflow:hidden;
-    border:3px solid #2d3748;
-    box-shadow:0 10px 40px rgba(0,0,0,0.5);
+    cursor:crosshair;
   }
-  .browser-viewport.streaming { 
-    border-color:#4ade80; 
-    box-shadow:0 0 30px rgba(74,222,128,0.3), 0 10px 40px rgba(0,0,0,0.5);
-  }
-  .browser-viewport img {
+  .split-pane img {
     width:100%;
     height:100%;
     object-fit:contain;
     display:block;
   }
-  .browser-viewport .placeholder {
-    color:#666;
-    font-size:16px;
-    text-align:center;
-  }
-  
-  .info-panel {
-    margin-top:15px;
-    display:grid;
-    grid-template-columns:repeat(auto-fit, minmax(200px, 1fr));
-    gap:10px;
-  }
-  .info-card {
-    background:#1a1f3a;
-    padding:15px;
-    border-radius:8px;
-    border:1px solid #2d3748;
-  }
-  .info-label {
-    font-size:11px;
-    color:#888;
-    text-transform:uppercase;
-    margin-bottom:5px;
-  }
-  .info-value {
-    font-size:20px;
+  .pane-label {
+    position:absolute;
+    top:5px;
+    left:5px;
+    background:rgba(74,93,230,0.9);
+    color:#fff;
+    padding:4px 8px;
+    border-radius:4px;
+    font-size:10px;
     font-weight:700;
-    background:linear-gradient(135deg,#667eea,#764ba2);
-    -webkit-background-clip:text;
-    -webkit-text-fill-color:transparent;
-    background-clip:text;
+    pointer-events:none;
+    z-index:10;
   }
-  .info-detail {
-    font-size:12px;
-    color:#aaa;
-    margin-top:3px;
-  }
-  
-  .backend-list {
-    margin-top:8px;
-  }
-  .backend-item {
-    font-size:11px;
-    padding:4px 0;
-    display:flex;
-    justify-content:space-between;
-    align-items:center;
-  }
-  .backend-name { 
-    color:#4a5de6; 
-    display:flex;
-    align-items:center;
-    gap:5px;
-  }
-  .backend-fps {
+  .pane-stats {
+    position:absolute;
+    bottom:5px;
+    left:5px;
+    background:rgba(0,0,0,0.8);
     color:#4ade80;
-    font-weight:700;
-  }
-  .backend-latency { color:#888; }
-  
-  .frame-indicator {
-    display:inline-block;
-    width:6px;
-    height:6px;
-    border-radius:50%;
-    background:#4ade80;
-    animation: blink 0.5s ease-in-out infinite;
+    padding:4px 8px;
+    border-radius:4px;
+    font-size:10px;
+    pointer-events:none;
+    z-index:10;
   }
   
-  @keyframes blink {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.3; }
+  .placeholder {
+    width:100%;
+    height:100%;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    color:#666;
+    font-size:12px;
   }
   
   @keyframes pulse {
     0%, 100% { opacity: 1; }
     50% { opacity: 0.5; }
-  }
-  .loading {
-    animation: pulse 2s ease-in-out infinite;
   }
 </style>
 </head>
@@ -274,80 +257,62 @@
 
 <div class="login-overlay" id="loginOverlay">
   <div class="login-box">
-    <h1>⚡ Parallel Browser</h1>
-    <div class="subtitle">Multiple backends working together for maximum FPS</div>
+    <h1>🔀 Split-Screen Browser</h1>
+    <div class="subtitle">Multiple backends rendering the same page together</div>
     
     <input id="name" placeholder="Your name" value="Alice">
     <input id="key" placeholder="Access key" type="password" value="8392017">
     
     <button id="wakeBtn" style="background:#ffd34d;color:#000">☕ Wake All Servers</button>
-    <button id="launchBtn">🚀 Launch Parallel Browser</button>
+    <button id="launchBtn">🚀 Launch Split Browser</button>
     <div id="loginStatus" class="status"></div>
   </div>
 </div>
 
 <div class="main-screen" id="mainScreen" style="display:none">
   <div class="top-bar">
-    <h1>⚡ PARALLEL BROWSER</h1>
+    <h1>🔀 SPLIT BROWSER</h1>
     <div class="url-bar">
       <input id="globalUrl" placeholder="Navigate to..." value="https://example.com">
       <button id="globalGo">Go</button>
       <button id="globalBack">←</button>
       <button id="globalForward">→</button>
-      <button id="globalRefresh">🔄</button>
-    </div>
-    <div class="backend-status" id="backendStatus"></div>
-  </div>
-  
-  <div class="browser-container">
-    <div class="browser-viewport" id="browserViewport" tabindex="0">
-      <div class="placeholder loading">Initializing parallel rendering...</div>
     </div>
     
-    <div class="info-panel">
-      <div class="info-card">
-        <div class="info-label">Combined FPS</div>
-        <div class="info-value" id="fps">0</div>
-        <div class="info-detail" id="fpsDetail">Parallel rendering inactive</div>
-      </div>
-      <div class="info-card">
-        <div class="info-label">Total Bandwidth</div>
-        <div class="info-value" id="bandwidth">0</div>
-        <div class="info-detail">KB/s across all backends</div>
-      </div>
-      <div class="info-card">
-        <div class="info-label">Parallel Workers</div>
-        <div class="info-value" id="workerCount">0/0</div>
-        <div class="backend-list" id="backendList"></div>
-      </div>
-      <div class="info-card">
-        <div class="info-label">Frame Distribution</div>
-        <div class="info-value" id="frameDistribution">-</div>
-        <div class="info-detail" id="distributionDetail">Round-robin scheduling</div>
-      </div>
+    <div class="mode-toggle">
+      <button class="mode-btn active" id="modeComposite">Composite</button>
+      <button class="mode-btn" id="modeSplit">Split View</button>
     </div>
+    
+    <div class="stats-mini">
+      <div class="stat-mini">FPS: <span id="fpsMini">0</span></div>
+      <div class="stat-mini">Workers: <span id="workersMini">0</span></div>
+    </div>
+  </div>
+  
+  <div class="browser-container" id="browserContainer">
+    <!-- Content injected based on mode -->
   </div>
 </div>
 
 <script>
 // Backend server pool
 const HOST_POOL = [
-  { name: "Render-1", url: "https://render-repo-1-yto6.onrender.com" },
-  { name: "Render-2", url: "https://render-repo-0x73.onrender.com" },
-  { name: "Render-3", url: "https://render-repo-f64m.onrender.com" },
+  { name: "R1", url: "https://render-repo-1-yto6.onrender.com" },
+  { name: "R2", url: "https://render-repo-0x73.onrender.com" },
+  { name: "R3", url: "https://render-repo-f64m.onrender.com" },
+  { name: "R4", url: "https://render-repo-791m.onrender.com" },
 ];
 
-let backends = new Map(); // hostUrl -> { ws, host, status, latency, frameCount, lastFrameTime, fps }
+let backends = new Map();
 let userName = "";
-let lastFrame = null;
+let currentMode = 'composite'; // 'composite' or 'split'
 let totalFrameCount = 0;
-let totalBytesReceived = 0;
 let lastStatsUpdate = Date.now();
 
-// Frame buffer for smooth playback
-let frameBuffer = [];
-let maxBufferSize = 10;
-let isPlaying = false;
+// Canvas for composite mode
+let compositeCanvas = null;
+let compositeCtx = null;
 
 function setStatus(msg, type) {
   const el = document.getElementById("loginStatus");
@@ -355,117 +320,185 @@ function setStatus(msg, type) {
   el.className = "status show " + (type||"");
 }
 
-function updateBackendPills() {
-  const container = document.getElementById('backendStatus');
-  container.innerHTML = '';
+function initCompositeMode() {
+  const container = document.getElementById('browserContainer');
+  container.innerHTML = `
+    <div class="composite-view">
+      <canvas id="compositeCanvas" class="composite-canvas" width="1366" height="768"></canvas>
+    </div>
+  `;
   
-  const connected = Array.from(backends.values()).filter(b => b.status === 'connected');
+  compositeCanvas = document.getElementById('compositeCanvas');
+  compositeCtx = compositeCanvas.getContext('2d');
   
-  connected.forEach((backend, idx) => {
-    const pill = document.createElement('div');
-    pill.className = 'backend-pill';
+  // Setup click handler
+  compositeCanvas.addEventListener('click', handleCompositeClick);
+  compositeCanvas.addEventListener('wheel', handleCompositeScroll, {passive: false});
+}
+
+function initSplitMode() {
+  const container = document.getElementById('browserContainer');
+  const cols = Math.min(backends.size, 3);
+  
+  container.innerHTML = `<div class="split-view cols-${cols}" id="splitGrid"></div>`;
+  
+  const grid = document.getElementById('splitGrid');
+  let index = 0;
+  
+  backends.forEach((backend, url) => {
+    const pane = document.createElement('div');
+    pane.className = 'split-pane';
+    pane.id = 'pane-' + index;
+    pane.innerHTML = `
+      <div class="pane-label">${backend.host.name}</div>
+      <div class="pane-stats" id="stats-${index}">0 fps</div>
+      <div class="placeholder">Connecting...</div>
+    `;
     
-    if (backend.status === 'connected') {
-      pill.className += ' active';
-      pill.innerHTML = `<span class="frame-indicator"></span>${backend.host.name} (${backend.fps || 0} fps)`;
-    }
+    // Setup click handler for this pane
+    pane.addEventListener('click', (e) => handlePaneClick(e, pane));
+    pane.addEventListener('wheel', (e) => handlePaneScroll(e), {passive: false});
     
-    container.appendChild(pill);
+    backend.paneIndex = index;
+    grid.appendChild(pane);
+    index++;
   });
+}
+
+function switchMode(mode) {
+  currentMode = mode;
+  
+  // Update button states
+  document.getElementById('modeComposite').classList.toggle('active', mode === 'composite');
+  document.getElementById('modeSplit').classList.toggle('active', mode === 'split');
+  
+  if (mode === 'composite') {
+    initCompositeMode();
+  } else {
+    initSplitMode();
+  }
+}
+
+function handleCompositeClick(e) {
+  const rect = compositeCanvas.getBoundingClientRect();
+  const scaleX = 1366 / rect.width;
+  const scaleY = 768 / rect.height;
+  const x = Math.round((e.clientX - rect.left) * scaleX);
+  const y = Math.round((e.clientY - rect.top) * scaleY);
+  
+  sendCommand('click', { x, y });
+}
+
+function handleCompositeScroll(e) {
+  sendCommand('scroll', { dy: e.deltaY });
+  e.preventDefault();
+}
+
+function handlePaneClick(e, pane) {
+  if (e.target.tagName !== 'IMG') return;
+  
+  const img = e.target;
+  const rect = img.getBoundingClientRect();
+  const x = Math.round((e.clientX - rect.left) * (1366 / rect.width));
+  const y = Math.round((e.clientY - rect.top) * (768 / rect.height));
+  
+  sendCommand('click', { x, y });
+}
+
+function handlePaneScroll(e) {
+  sendCommand('scroll', { dy: e.deltaY });
+  e.preventDefault();
+}
+
+function updateCompositeFrame(backendUrl, imageUrl) {
+  if (!compositeCtx) return;
+  
+  const backend = backends.get(backendUrl);
+  if (!backend.image) {
+    backend.image = new Image();
+  }
+  
+  backend.image.onload = () => {
+    // Draw all backend images onto the composite canvas
+    // We blend them by taking the most recent frame
+    compositeCtx.clearRect(0, 0, 1366, 768);
+    
+    // Draw the most recent frame from any backend
+    let latestBackend = null;
+    let latestTime = 0;
+    
+    backends.forEach((b, url) => {
+      if (b.lastFrameTime && b.lastFrameTime > latestTime && b.image && b.image.complete) {
+        latestBackend = b;
+        latestTime = b.lastFrameTime;
+      }
+    });
+    
+    if (latestBackend && latestBackend.image) {
+      compositeCtx.drawImage(latestBackend.image, 0, 0, 1366, 768);
+    }
+  };
+  
+  backend.image.src = imageUrl;
+}
+
+function updateSplitFrame(backendUrl, imageUrl) {
+  const backend = backends.get(backendUrl);
+  if (backend.paneIndex === undefined) return;
+  
+  const pane = document.getElementById('pane-' + backend.paneIndex);
+  if (!pane) return;
+  
+  pane.innerHTML = `
+    <div class="pane-label">${backend.host.name}</div>
+    <div class="pane-stats">${backend.fps || 0} fps</div>
+    <img src="${imageUrl}" alt="${backend.host.name}">
+  `;
 }
 
 function updateStats() {
   const connected = Array.from(backends.values()).filter(b => b.status === 'connected');
-  const total = backends.size;
   
-  document.getElementById('workerCount').textContent = `${connected.length}/${total}`;
-  
-  // Calculate individual backend FPS
+  // Calculate FPS
   const now = Date.now();
-  backends.forEach((backend, url) => {
+  backends.forEach((backend) => {
     if (backend.frameCount > 0 && backend.lastStatsUpdate) {
       const elapsed = (now - backend.lastStatsUpdate) / 1000;
       if (elapsed > 1) {
         backend.fps = Math.round(backend.frameCount / elapsed);
         backend.frameCount = 0;
         backend.lastStatsUpdate = now;
+        
+        // Update split view stats
+        if (currentMode === 'split' && backend.paneIndex !== undefined) {
+          const statsEl = document.getElementById('stats-' + backend.paneIndex);
+          if (statsEl) statsEl.textContent = backend.fps + ' fps';
+        }
       }
     }
   });
   
-  // Update backend list with individual stats
-  const list = document.getElementById('backendList');
-  list.innerHTML = '';
-  backends.forEach((backend, url) => {
-    const item = document.createElement('div');
-    item.className = 'backend-item';
-    const status = backend.status === 'connected' ? '🟢' : '🔴';
-    item.innerHTML = `
-      <span class="backend-name">${status} ${backend.host.name}</span>
-      <span class="backend-fps">${backend.fps || 0} fps</span>
-    `;
-    list.appendChild(item);
-  });
-  
-  // Calculate combined FPS and bandwidth
+  // Update combined FPS
   const elapsed = (now - lastStatsUpdate) / 1000;
   if (elapsed > 1) {
     const combinedFps = Math.round(totalFrameCount / elapsed);
-    const kbps = Math.round((totalBytesReceived / 1024) / elapsed);
-    
-    document.getElementById('fps').textContent = combinedFps;
-    document.getElementById('fpsDetail').textContent = `${connected.length} backends rendering in parallel`;
-    document.getElementById('bandwidth').textContent = `${kbps} KB/s`;
-    
-    // Calculate frame distribution
-    const perBackend = connected.length > 0 ? Math.round(combinedFps / connected.length) : 0;
-    document.getElementById('frameDistribution').textContent = `~${perBackend} fps`;
-    document.getElementById('distributionDetail').textContent = `per backend (${connected.length}x multiplier)`;
-    
+    document.getElementById('fpsMini').textContent = combinedFps;
     totalFrameCount = 0;
-    totalBytesReceived = 0;
     lastStatsUpdate = now;
   }
   
-  updateBackendPills();
-}
-
-// Frame display with buffering for smooth playback
-function displayNextFrame() {
-  if (frameBuffer.length > 0) {
-    const frame = frameBuffer.shift();
-    
-    const viewport = document.getElementById('browserViewport');
-    viewport.innerHTML = `<img src="${frame}" alt="Browser">`;
-    viewport.classList.add('streaming');
-    
-    // Cleanup old frame
-    if (lastFrame && lastFrame !== frame) {
-      setTimeout(() => URL.revokeObjectURL(lastFrame), 1000);
-    }
-    lastFrame = frame;
-  }
-  
-  // Continue playback loop
-  requestAnimationFrame(displayNextFrame);
+  document.getElementById('workersMini').textContent = connected.length;
 }
 
 function sendCommand(action, data) {
-  // Send command to ALL backends - they all stay in sync
-  let sent = 0;
-  backends.forEach((backend, url) => {
+  backends.forEach((backend) => {
     if (backend.status === 'connected' && backend.ws.readyState === WebSocket.OPEN) {
       backend.ws.send(JSON.stringify({type:'control', action, ...data}));
-      sent++;
     }
   });
-  
-  if (sent === 0) {
-    console.warn('No backends available to send command');
-  }
 }
 
-async function connectBackend(host) {
+async function connectBackend(host, index) {
   const wsUrl = host.url.replace(/^http/, 'ws') + '/ws';
   
   try {
@@ -481,7 +514,9 @@ async function connectBackend(host) {
       lastFrameTime: null,
       lastStatsUpdate: Date.now(),
       fps: 0,
-      startTime: Date.now()
+      startTime: Date.now(),
+      paneIndex: index,
+      image: null
     };
     
     backends.set(host.url, backendData);
@@ -499,56 +534,48 @@ async function connectBackend(host) {
           if (j.type === 'info' && j.action === 'created') {
             backendData.status = 'connected';
             backendData.latency = Date.now() - backendData.startTime;
-            console.log(`✅ ${host.name} authenticated (${backendData.latency}ms)`);
+            console.log(`✅ ${host.name} ready (${backendData.latency}ms)`);
             
-            // Start streaming immediately
             ws.send(JSON.stringify({type:'control', action:'startStream'}));
-            
-            // Start frame display loop if not already running
-            if (!isPlaying) {
-              isPlaying = true;
-              displayNextFrame();
-            }
-            
             updateStats();
           }
           if (j.type === 'error') {
             console.error(`Error from ${host.name}:`, j.message);
             backendData.status = 'error';
-            updateStats();
           }
         } catch (err) {}
         return;
       }
       
-      // Handle frame from ANY backend - all frames are used!
+      // Handle frame
       const blob = new Blob([e.data], { type: 'image/jpeg' });
       const url = URL.createObjectURL(blob);
       
-      // Add to frame buffer (bounded to prevent memory issues)
-      if (frameBuffer.length < maxBufferSize) {
-        frameBuffer.push(url);
-      } else {
-        // Buffer full, drop oldest frame
-        const oldFrame = frameBuffer.shift();
-        URL.revokeObjectURL(oldFrame);
-        frameBuffer.push(url);
-      }
-      
-      // Update stats
       backendData.frameCount++;
       backendData.lastFrameTime = Date.now();
       totalFrameCount++;
-      totalBytesReceived += e.data.byteLength;
       
       if (!backendData.lastStatsUpdate) {
         backendData.lastStatsUpdate = Date.now();
       }
       
+      // Update display based on current mode
+      if (currentMode === 'composite') {
+        updateCompositeFrame(host.url, url);
+      } else {
+        updateSplitFrame(host.url, url);
+      }
+      
+      // Cleanup old frame
+      if (backendData.lastFrameUrl) {
+        setTimeout(() => URL.revokeObjectURL(backendData.lastFrameUrl), 1000);
+      }
+      backendData.lastFrameUrl = url;
+      
       updateStats();
     };
     
-    ws.onerror = (err) => {
+    ws.onerror = () => {
       console.error(`Connection error: ${host.name}`);
       backendData.status = 'error';
       updateStats();
@@ -559,10 +586,9 @@ async function connectBackend(host) {
       backendData.status = 'disconnected';
       updateStats();
       
-      // Auto-reconnect after 5 seconds
       setTimeout(() => {
         console.log(`Reconnecting to ${host.name}...`);
-        connectBackend(host);
+        connectBackend(host, index);
       }, 5000);
     };
     
@@ -583,7 +609,6 @@ async function validateAndLaunch() {
   userName = name;
   setStatus("🔍 Validating credentials...", "info");
   
-  // Validate with first available host
   let validated = false;
   for (const host of HOST_POOL) {
     try {
@@ -603,25 +628,25 @@ async function validateAndLaunch() {
     return;
   }
   
-  // Hide login, show main screen
   document.getElementById('loginOverlay').classList.add('hidden');
   document.getElementById('mainScreen').style.display = 'flex';
   
-  // Connect to ALL backends - they all contribute frames in parallel!
-  for (const host of HOST_POOL) {
-    connectBackend(host);
-  }
+  // Initialize composite mode
+  initCompositeMode();
+  
+  // Connect to all backends
+  HOST_POOL.forEach((host, index) => {
+    connectBackend(host, index);
+  });
   
   updateStats();
 }
 
-// Wake servers button
+// Wake servers
 document.getElementById('wakeBtn').addEventListener('click', async () => {
   setStatus("☕ Waking all servers...", "info");
   
   let online = 0;
-  let offline = 0;
-  
   const checks = HOST_POOL.map(async (host) => {
     try {
       const r = await fetch(host.url + "/health", { cache: 'no-store' });
@@ -629,21 +654,15 @@ document.getElementById('wakeBtn').addEventListener('click', async () => {
       if (j.status === "ok") {
         online++;
         return `✅ ${host.name}: Online`;
-      } else {
-        offline++;
-        return `⚠️ ${host.name}: Not OK`;
       }
     } catch (e) {
-      offline++;
-      return `❌ ${host.name}: Offline (cold start)`;
+      return `❌ ${host.name}: Offline`;
     }
   });
   
   const results = await Promise.all(checks);
-  const summary = results.join('<br>');
-  
-  setStatus(`<strong>Server Status:</strong><br>${summary}<br><br><strong>Online: ${online} / ${HOST_POOL.length}</strong>`, 
-    online === HOST_POOL.length ? "success" : (online > 0 ? "info" : "error"));
+  setStatus(results.join('<br>') + `<br><br><strong>Online: ${online}/${HOST_POOL.length}</strong>`, 
+    online === HOST_POOL.length ? "success" : "info");
 });
 
 // Event listeners
@@ -652,9 +671,7 @@ document.getElementById('launchBtn').addEventListener('click', validateAndLaunch
 document.getElementById('globalGo').addEventListener('click', () => {
   let url = document.getElementById('globalUrl').value.trim();
   if (url) {
-    if (!/^https?:\/\//i.test(url)) {
-      url = 'https://' + url;
-    }
+    if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
     sendCommand('navigate', { url });
   }
 });
@@ -667,64 +684,22 @@ document.getElementById('globalForward').addEventListener('click', () => {
   sendCommand('forward', {});
 });
 
-document.getElementById('globalRefresh').addEventListener('click', () => {
-  const url = document.getElementById('globalUrl').value.trim();
-  if (url) {
-    sendCommand('navigate', { url });
-  }
+document.getElementById('modeComposite').addEventListener('click', () => {
+  switchMode('composite');
 });
 
-// Viewport interactions
-const viewport = document.getElementById('browserViewport');
-
-viewport.addEventListener('click', (e) => {
-  if (e.target.tagName !== 'IMG') return;
-  
-  const img = e.target;
-  const rect = img.getBoundingClientRect();
-  const x = Math.round((e.clientX - rect.left) * (1366 / rect.width));
-  const y = Math.round((e.clientY - rect.top) * (768 / rect.height));
-  
-  sendCommand('click', { x, y });
-  viewport.focus();
+document.getElementById('modeSplit').addEventListener('click', () => {
+  switchMode('split');
 });
 
-viewport.addEventListener('keydown', (e) => {
-  if (e.key.length === 1) {
-    sendCommand('type', { text: e.key });
-    e.preventDefault();
-  } else if (e.key === 'Enter') {
-    sendCommand('type', { text: '\n' });
-    e.preventDefault();
-  } else if (e.key === 'Backspace') {
-    sendCommand('type', { text: '\b' });
-    e.preventDefault();
-  }
-});
-
-viewport.addEventListener('wheel', (e) => {
-  sendCommand('scroll', { dy: e.deltaY });
-  e.preventDefault();
-}, { passive: false });
-
-// Global keyboard shortcuts
+// Keyboard shortcuts
 document.addEventListener('keydown', (e) => {
   if ((e.ctrlKey || e.metaKey) && e.key === 'l') {
     e.preventDefault();
     document.getElementById('globalUrl').focus();
     document.getElementById('globalUrl').select();
   }
-  
-  if ((e.ctrlKey || e.metaKey) && e.key === 'r') {
-    e.preventDefault();
-    document.getElementById('globalRefresh').click();
-  }
 });
-
-// Auto-focus viewport on load
-setTimeout(() => {
-  viewport.focus();
-}, 1000);
 
 // Stats update loop
 setInterval(updateStats, 1000);
