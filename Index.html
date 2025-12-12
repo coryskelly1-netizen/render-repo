@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Tiled Parallel Browser</title>
+<title>Optimal Multi-Backend Browser</title>
 <style>
   * { box-sizing: border-box; }
   body { 
@@ -29,7 +29,7 @@
   .login-overlay.hidden { display:none; }
   
   .login-box {
-    max-width:450px;
+    max-width:500px;
     width:90%;
     padding:30px;
     background:#1a1f3a;
@@ -38,8 +38,11 @@
   }
   .login-box h1 { 
     margin:0 0 10px 0; 
-    font-size:24px;
+    font-size:26px;
     text-align:center;
+    background:linear-gradient(135deg,#667eea,#764ba2);
+    -webkit-background-clip:text;
+    -webkit-text-fill-color:transparent;
   }
   .login-box .subtitle {
     text-align:center;
@@ -47,6 +50,52 @@
     font-size:13px;
     margin-bottom:20px;
   }
+  
+  .mode-selector {
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:10px;
+    margin:20px 0;
+  }
+  .mode-card {
+    background:#0f1419;
+    padding:15px;
+    border-radius:8px;
+    border:2px solid #2d3748;
+    cursor:pointer;
+    transition:all 0.2s;
+    text-align:center;
+  }
+  .mode-card:hover { border-color:#4a5de6; }
+  .mode-card.selected { 
+    border-color:#4ade80; 
+    background:#1e3d2f;
+  }
+  .mode-icon {
+    font-size:32px;
+    margin-bottom:8px;
+  }
+  .mode-title {
+    font-size:14px;
+    font-weight:700;
+    color:#fff;
+    margin-bottom:5px;
+  }
+  .mode-desc {
+    font-size:11px;
+    color:#888;
+  }
+  .mode-badge {
+    display:inline-block;
+    padding:2px 6px;
+    background:#4ade80;
+    color:#000;
+    border-radius:3px;
+    font-size:9px;
+    font-weight:700;
+    margin-top:5px;
+  }
+  
   input { 
     width:100%; 
     padding:12px; 
@@ -103,7 +152,7 @@
   }
   .top-bar h1 {
     margin:0;
-    font-size:18px;
+    font-size:16px;
     background:linear-gradient(135deg,#667eea,#764ba2);
     -webkit-background-clip:text;
     -webkit-text-fill-color:transparent;
@@ -129,56 +178,50 @@
     font-size:13px;
   }
   
-  .mode-toggle {
-    display:flex;
-    gap:5px;
-    background:#0f1419;
-    padding:3px;
-    border-radius:8px;
-  }
-  .mode-btn {
-    padding:6px 12px;
-    font-size:11px;
-    border-radius:6px;
-    background:transparent;
-    margin:0;
-    width:auto;
-  }
-  .mode-btn.active {
-    background:#4a5de6;
-  }
-  
-  .stats-mini {
-    font-size:11px;
-    color:#888;
+  .stats-bar {
     display:flex;
     gap:15px;
+    font-size:11px;
+    color:#888;
+    align-items:center;
   }
-  .stat-mini {
-    white-space:nowrap;
+  .stat-item {
+    display:flex;
+    align-items:center;
+    gap:5px;
   }
-  .stat-mini span {
+  .stat-value {
     color:#4ade80;
     font-weight:700;
   }
+  .backend-indicators {
+    display:flex;
+    gap:4px;
+  }
+  .backend-dot {
+    width:8px;
+    height:8px;
+    border-radius:50%;
+    background:#2d3748;
+  }
+  .backend-dot.active { background:#4ade80; animation:pulse 2s infinite; }
+  .backend-dot.primary { background:#4a5de6; box-shadow:0 0 8px #4a5de6; }
   
-  .browser-container {
-    flex:1;
-    position:relative;
-    overflow:hidden;
-    background:#000;
+  @keyframes pulse {
+    0%, 100% { opacity:1; }
+    50% { opacity:0.5; }
   }
   
-  /* Tiled composite view */
-  .composite-view {
-    width:100%;
-    height:100%;
-    position:relative;
+  .browser-viewport {
+    flex:1;
+    background:#000;
     display:flex;
     align-items:center;
     justify-content:center;
+    position:relative;
+    overflow:hidden;
   }
-  .composite-canvas {
+  .viewport-canvas {
     max-width:100%;
     max-height:100%;
     object-fit:contain;
@@ -186,89 +229,46 @@
     box-shadow:0 0 40px rgba(0,0,0,0.8);
   }
   
-  /* Split tile view */
-  .split-view {
-    width:100%;
-    height:100%;
-    display:flex;
-    gap:2px;
-    background:#2d3748;
-    padding:2px;
-  }
-  
-  .split-pane {
-    flex:1;
-    background:#000;
-    position:relative;
-    overflow:hidden;
-    cursor:crosshair;
-  }
-  .split-pane img {
-    width:100%;
-    height:100%;
-    object-fit:cover;
-    display:block;
-  }
-  .pane-label {
+  .mode-badge-corner {
     position:absolute;
-    top:5px;
-    left:5px;
-    background:rgba(74,93,230,0.9);
-    color:#fff;
-    padding:4px 8px;
-    border-radius:4px;
-    font-size:10px;
+    top:15px;
+    right:15px;
+    background:rgba(74,222,128,0.9);
+    color:#000;
+    padding:8px 16px;
+    border-radius:8px;
+    font-size:11px;
     font-weight:700;
     pointer-events:none;
     z-index:10;
+    box-shadow:0 4px 12px rgba(0,0,0,0.3);
   }
-  .pane-tile-info {
+  
+  .debug-panel {
     position:absolute;
-    top:5px;
-    right:5px;
-    background:rgba(0,0,0,0.9);
-    color:#4ade80;
-    padding:4px 8px;
-    border-radius:4px;
-    font-size:9px;
-    pointer-events:none;
-    z-index:10;
-  }
-  .pane-stats {
-    position:absolute;
-    bottom:5px;
-    left:5px;
-    background:rgba(0,0,0,0.8);
-    color:#4ade80;
-    padding:4px 8px;
-    border-radius:4px;
+    bottom:15px;
+    left:15px;
+    background:rgba(26,31,58,0.95);
+    padding:12px;
+    border-radius:8px;
     font-size:10px;
-    pointer-events:none;
-    z-index:10;
+    color:#888;
+    max-width:300px;
+    display:none;
+  }
+  .debug-panel.show { display:block; }
+  .debug-line {
+    margin:3px 0;
+  }
+  .debug-label {
+    color:#4a5de6;
+    font-weight:700;
   }
   
   .placeholder {
-    width:100%;
-    height:100%;
-    display:flex;
-    align-items:center;
-    justify-content:center;
     color:#666;
-    font-size:12px;
-  }
-  
-  .tile-badge {
-    position:absolute;
-    top:10px;
-    right:10px;
-    background:rgba(74,222,128,0.9);
-    color:#000;
-    padding:6px 12px;
-    border-radius:6px;
-    font-size:10px;
-    font-weight:700;
-    pointer-events:none;
-    z-index:10;
+    font-size:16px;
+    text-align:center;
   }
 </style>
 </head>
@@ -276,21 +276,45 @@
 
 <div class="login-overlay" id="loginOverlay">
   <div class="login-box">
-    <h1>🔲 Tiled Parallel Browser</h1>
-    <div class="subtitle">Each backend renders a slice of the screen</div>
+    <h1>🚀 Multi-Backend Browser</h1>
+    <div class="subtitle">Intelligent distributed rendering system</div>
     
     <input id="name" placeholder="Your name" value="Alice">
     <input id="key" placeholder="Access key" type="password" value="8392017">
     
+    <div class="mode-selector">
+      <div class="mode-card selected" data-mode="hybrid" id="modeHybrid">
+        <div class="mode-icon">⚡</div>
+        <div class="mode-title">Hybrid</div>
+        <div class="mode-desc">Best of both worlds</div>
+        <div class="mode-badge">RECOMMENDED</div>
+      </div>
+      <div class="mode-card" data-mode="tiled" id="modeTiled">
+        <div class="mode-icon">🔲</div>
+        <div class="mode-title">Tiled</div>
+        <div class="mode-desc">Max parallelism</div>
+      </div>
+      <div class="mode-card" data-mode="redundant" id="modeRedundant">
+        <div class="mode-icon">🛡️</div>
+        <div class="mode-title">Redundant</div>
+        <div class="mode-desc">High reliability</div>
+      </div>
+      <div class="mode-card" data-mode="roundrobin" id="modeRoundRobin">
+        <div class="mode-icon">🔄</div>
+        <div class="mode-title">Round Robin</div>
+        <div class="mode-desc">Load balanced</div>
+      </div>
+    </div>
+    
     <button id="wakeBtn" style="background:#ffd34d;color:#000">☕ Wake All Servers</button>
-    <button id="launchBtn">🚀 Launch Tiled Browser</button>
+    <button id="launchBtn">🚀 Launch Browser</button>
     <div id="loginStatus" class="status"></div>
   </div>
 </div>
 
 <div class="main-screen" id="mainScreen" style="display:none">
   <div class="top-bar">
-    <h1>🔲 TILED RENDERING</h1>
+    <h1 id="topTitle">MULTI-BACKEND BROWSER</h1>
     <div class="url-bar">
       <input id="globalUrl" placeholder="Navigate to..." value="https://example.com">
       <button id="globalGo">Go</button>
@@ -298,24 +322,27 @@
       <button id="globalForward">→</button>
     </div>
     
-    <div class="mode-toggle">
-      <button class="mode-btn active" id="modeComposite">Composite</button>
-      <button class="mode-btn" id="modeSplit">Split Tiles</button>
-    </div>
-    
-    <div class="stats-mini">
-      <div class="stat-mini">FPS: <span id="fpsMini">0</span></div>
-      <div class="stat-mini">Tiles: <span id="tilesMini">0</span></div>
+    <div class="stats-bar">
+      <div class="stat-item">
+        <span>FPS:</span>
+        <span class="stat-value" id="fpsValue">0</span>
+      </div>
+      <div class="stat-item">
+        <span>Latency:</span>
+        <span class="stat-value" id="latencyValue">0ms</span>
+      </div>
+      <div class="backend-indicators" id="backendIndicators"></div>
     </div>
   </div>
   
-  <div class="browser-container" id="browserContainer">
-    <!-- Content injected based on mode -->
+  <div class="browser-viewport" id="browserViewport">
+    <canvas id="viewportCanvas" class="viewport-canvas" width="1366" height="768"></canvas>
+    <div class="mode-badge-corner" id="modeBadge">HYBRID MODE</div>
+    <div class="debug-panel" id="debugPanel"></div>
   </div>
 </div>
 
 <script>
-// Backend server pool
 const HOST_POOL = [
   { name: "R1", url: "https://render-repo-1-yto6.onrender.com" },
   { name: "R2", url: "https://render-repo-0x73.onrender.com" },
@@ -326,331 +353,287 @@ const HOST_POOL = [
 const VIEWPORT_WIDTH = 1366;
 const VIEWPORT_HEIGHT = 768;
 
+// System state
 let backends = new Map();
 let userName = "";
-let currentMode = 'composite';
-let totalFrameCount = 0;
-let lastStatsUpdate = Date.now();
+let renderMode = 'hybrid';
+let canvas = null;
+let ctx = null;
 
-// Canvas for tiled composite
-let compositeCanvas = null;
-let compositeCtx = null;
+// Performance tracking
+let frameStats = { count: 0, lastUpdate: Date.now() };
+let latencyStats = [];
 
-// Track which tiles are loaded
-let tilesLoaded = new Set();
+// Rendering strategies
+const RenderStrategies = {
+  // HYBRID: Primary backend (fastest) + tiled backups for failed regions
+  hybrid: {
+    init: (backends) => {
+      const fastest = selectFastest(backends);
+      fastest.role = 'primary';
+      fastest.tileRegion = null; // Full screen
+      
+      const others = Array.from(backends.values()).filter(b => b !== fastest);
+      assignTiles(others, true); // Assign tiles to backups
+      
+      return { primary: fastest, backups: others };
+    },
+    render: (frame, backend) => {
+      if (backend.role === 'primary') {
+        ctx.drawImage(frame, 0, 0, VIEWPORT_WIDTH, VIEWPORT_HEIGHT);
+      } else if (backend.tileRegion) {
+        // Backup tile - only draw if primary fails in this region
+        const tile = backend.tileRegion;
+        ctx.drawImage(frame, tile.x, tile.y, tile.width, tile.height);
+      }
+    }
+  },
+  
+  // TILED: Each backend renders a vertical slice
+  tiled: {
+    init: (backends) => {
+      assignTiles(Array.from(backends.values()), false);
+      return { tiles: Array.from(backends.values()) };
+    },
+    render: (frame, backend) => {
+      if (backend.tileRegion) {
+        const tile = backend.tileRegion;
+        ctx.drawImage(frame, tile.x, tile.y, tile.width, tile.height);
+      }
+    }
+  },
+  
+  // REDUNDANT: All backends render full frame, use fastest
+  redundant: {
+    init: (backends) => {
+      backends.forEach(b => {
+        b.tileRegion = null; // Full screen
+        b.role = 'redundant';
+      });
+      return { backends: Array.from(backends.values()) };
+    },
+    render: (frame, backend) => {
+      // Always draw from fastest responding backend
+      ctx.drawImage(frame, 0, 0, VIEWPORT_WIDTH, VIEWPORT_HEIGHT);
+    }
+  },
+  
+  // ROUND ROBIN: Backends take turns, increases combined FPS
+  roundrobin: {
+    init: (backends) => {
+      const arr = Array.from(backends.values());
+      arr.forEach((b, i) => {
+        b.tileRegion = null;
+        b.role = 'roundrobin';
+        b.turnIndex = i;
+      });
+      return { backends: arr, currentTurn: 0 };
+    },
+    render: (frame, backend, state) => {
+      // Only render if it's this backend's turn
+      if (backend.turnIndex === state.currentTurn) {
+        ctx.drawImage(frame, 0, 0, VIEWPORT_WIDTH, VIEWPORT_HEIGHT);
+        state.currentTurn = (state.currentTurn + 1) % state.backends.length;
+      }
+    }
+  }
+};
+
+let currentStrategy = null;
+let strategyState = null;
 
 function setStatus(msg, type) {
   const el = document.getElementById("loginStatus");
   el.innerHTML = msg;
-  el.className = "status show " + (type||"");
+  el.className = "status show " + (type || "");
 }
 
-// Calculate tile regions for each backend
-function calculateTileRegions(numBackends) {
-  const tiles = [];
-  const tileWidth = Math.floor(VIEWPORT_WIDTH / numBackends);
+function selectFastest(backends) {
+  let fastest = null;
+  let minLatency = Infinity;
+  backends.forEach(backend => {
+    if (backend.status === 'connected' && backend.latency < minLatency) {
+      minLatency = backend.latency;
+      fastest = backend;
+    }
+  });
+  return fastest || Array.from(backends.values())[0];
+}
+
+function assignTiles(backends, isBackup) {
+  const count = backends.length;
+  const tileWidth = Math.floor(VIEWPORT_WIDTH / count);
   
-  for (let i = 0; i < numBackends; i++) {
+  backends.forEach((backend, i) => {
     const x = i * tileWidth;
-    const width = (i === numBackends - 1) ? (VIEWPORT_WIDTH - x) : tileWidth; // Last tile takes remainder
+    const width = (i === count - 1) ? (VIEWPORT_WIDTH - x) : tileWidth;
     
-    tiles.push({
-      x: x,
-      y: 0,
-      width: width,
-      height: VIEWPORT_HEIGHT,
-      index: i
-    });
-  }
-  
-  return tiles;
-}
-
-function initCompositeMode() {
-  const container = document.getElementById('browserContainer');
-  container.innerHTML = `
-    <div class="composite-view">
-      <canvas id="compositeCanvas" class="composite-canvas" width="${VIEWPORT_WIDTH}" height="${VIEWPORT_HEIGHT}"></canvas>
-      <div class="tile-badge">TILED: ${backends.size} slices</div>
-    </div>
-  `;
-  
-  compositeCanvas = document.getElementById('compositeCanvas');
-  compositeCtx = compositeCanvas.getContext('2d', { 
-    alpha: false,
-    desynchronized: true
-  });
-  
-  // Fill with dark background
-  compositeCtx.fillStyle = '#1a1a1a';
-  compositeCtx.fillRect(0, 0, VIEWPORT_WIDTH, VIEWPORT_HEIGHT);
-  
-  compositeCanvas.addEventListener('click', handleCompositeClick);
-  compositeCanvas.addEventListener('wheel', handleCompositeScroll, {passive: false});
-}
-
-function initSplitMode() {
-  const container = document.getElementById('browserContainer');
-  
-  container.innerHTML = `<div class="split-view" id="splitGrid"></div>`;
-  
-  const grid = document.getElementById('splitGrid');
-  
-  backends.forEach((backend, url) => {
-    const tile = backend.tile;
-    const pane = document.createElement('div');
-    pane.className = 'split-pane';
-    pane.id = 'pane-' + tile.index;
-    pane.innerHTML = `
-      <div class="pane-label">${backend.host.name}</div>
-      <div class="pane-tile-info">Tile ${tile.index + 1}<br>x:${tile.x} w:${tile.width}</div>
-      <div class="pane-stats" id="stats-${tile.index}">0 fps</div>
-      <div class="placeholder">Loading tile...</div>
-    `;
-    
-    pane.addEventListener('click', (e) => handlePaneClick(e, pane, backend));
-    pane.addEventListener('wheel', (e) => handlePaneScroll(e), {passive: false});
-    
-    grid.appendChild(pane);
+    backend.tileRegion = { x, y: 0, width, height: VIEWPORT_HEIGHT };
+    backend.role = isBackup ? 'backup' : 'tile';
   });
 }
 
-function switchMode(mode) {
-  currentMode = mode;
+function initCanvas() {
+  canvas = document.getElementById('viewportCanvas');
+  ctx = canvas.getContext('2d', { alpha: false, desynchronized: true });
+  ctx.fillStyle = '#1a1a1a';
+  ctx.fillRect(0, 0, VIEWPORT_WIDTH, VIEWPORT_HEIGHT);
   
-  document.getElementById('modeComposite').classList.toggle('active', mode === 'composite');
-  document.getElementById('modeSplit').classList.toggle('active', mode === 'split');
-  
-  if (mode === 'composite') {
-    initCompositeMode();
-  } else {
-    initSplitMode();
-  }
+  canvas.addEventListener('click', handleClick);
+  canvas.addEventListener('wheel', handleScroll, { passive: false });
 }
 
-function handleCompositeClick(e) {
-  const rect = compositeCanvas.getBoundingClientRect();
-  const scaleX = VIEWPORT_WIDTH / rect.width;
-  const scaleY = VIEWPORT_HEIGHT / rect.height;
-  const x = Math.round((e.clientX - rect.left) * scaleX);
-  const y = Math.round((e.clientY - rect.top) * scaleY);
-  
-  sendCommand('click', { x, y });
+function handleClick(e) {
+  const rect = canvas.getBoundingClientRect();
+  const x = Math.round((e.clientX - rect.left) * (VIEWPORT_WIDTH / rect.width));
+  const y = Math.round((e.clientY - rect.top) * (VIEWPORT_HEIGHT / rect.height));
+  sendCommandToAll('click', { x, y });
 }
 
-function handleCompositeScroll(e) {
-  sendCommand('scroll', { dy: e.deltaY });
+function handleScroll(e) {
+  sendCommandToAll('scroll', { dy: e.deltaY });
   e.preventDefault();
 }
 
-function handlePaneClick(e, pane, backend) {
-  if (e.target.tagName !== 'IMG') return;
-  
-  const img = e.target;
-  const rect = img.getBoundingClientRect();
-  const tile = backend.tile;
-  
-  // Calculate click position relative to the TILE
-  const tileX = Math.round((e.clientX - rect.left) * (tile.width / rect.width));
-  
-  // Convert to absolute page coordinates
-  const absoluteX = tile.x + tileX;
-  const absoluteY = Math.round((e.clientY - rect.top) * (VIEWPORT_HEIGHT / rect.height));
-  
-  sendCommand('click', { x: absoluteX, y: absoluteY });
+function sendCommandToAll(action, data) {
+  backends.forEach(backend => {
+    if (backend.status === 'connected' && backend.ws.readyState === WebSocket.OPEN) {
+      backend.ws.send(JSON.stringify({ type: 'control', action, ...data }));
+    }
+  });
 }
 
-function handlePaneScroll(e) {
-  sendCommand('scroll', { dy: e.deltaY });
-  e.preventDefault();
-}
-
-function updateCompositeTile(backend, imageUrl) {
-  if (!compositeCtx) return;
+function updateBackendIndicators() {
+  const container = document.getElementById('backendIndicators');
+  container.innerHTML = '';
   
-  const tile = backend.tile;
-  
-  if (!backend.tileImage) {
-    backend.tileImage = new Image();
-  }
-  
-  backend.tileImage.onload = () => {
-    requestAnimationFrame(() => {
-      // Draw this backend's tile slice onto the composite canvas
-      compositeCtx.drawImage(
-        backend.tileImage,
-        tile.x,      // destination x
-        tile.y,      // destination y
-        tile.width,  // destination width
-        tile.height  // destination height
-      );
-      
-      tilesLoaded.add(tile.index);
-    });
-  };
-  
-  backend.tileImage.src = imageUrl;
-}
-
-function updateSplitTile(backend, imageUrl) {
-  const tile = backend.tile;
-  const pane = document.getElementById('pane-' + tile.index);
-  if (!pane) return;
-  
-  pane.innerHTML = `
-    <div class="pane-label">${backend.host.name}</div>
-    <div class="pane-tile-info">Tile ${tile.index + 1}<br>x:${tile.x} w:${tile.width}</div>
-    <div class="pane-stats">${backend.fps || 0} fps</div>
-    <img src="${imageUrl}" alt="${backend.host.name}">
-  `;
+  backends.forEach(backend => {
+    const dot = document.createElement('div');
+    dot.className = 'backend-dot';
+    if (backend.status === 'connected') {
+      dot.classList.add('active');
+      if (backend.role === 'primary') dot.classList.add('primary');
+    }
+    dot.title = `${backend.host.name} (${backend.role || 'inactive'})`;
+    container.appendChild(dot);
+  });
 }
 
 function updateStats() {
-  const connected = Array.from(backends.values()).filter(b => b.status === 'connected');
-  
   const now = Date.now();
-  backends.forEach((backend) => {
-    if (backend.frameCount > 0 && backend.lastStatsUpdate) {
-      const elapsed = (now - backend.lastStatsUpdate) / 1000;
-      if (elapsed > 1) {
-        backend.fps = Math.round(backend.frameCount / elapsed);
-        backend.frameCount = 0;
-        backend.lastStatsUpdate = now;
-        
-        if (currentMode === 'split' && backend.tile) {
-          const statsEl = document.getElementById('stats-' + backend.tile.index);
-          if (statsEl) statsEl.textContent = backend.fps + ' fps';
-        }
-      }
-    }
-  });
+  const elapsed = (now - frameStats.lastUpdate) / 1000;
   
-  const elapsed = (now - lastStatsUpdate) / 1000;
   if (elapsed > 1) {
-    const fps = Math.round(totalFrameCount / elapsed);
-    document.getElementById('fpsMini').textContent = fps;
-    
-    totalFrameCount = 0;
-    lastStatsUpdate = now;
+    const fps = Math.round(frameStats.count / elapsed);
+    document.getElementById('fpsValue').textContent = fps;
+    frameStats.count = 0;
+    frameStats.lastUpdate = now;
   }
   
-  document.getElementById('tilesMini').textContent = `${connected.length}/${backends.size}`;
+  if (latencyStats.length > 0) {
+    const avg = Math.round(latencyStats.reduce((a, b) => a + b, 0) / latencyStats.length);
+    document.getElementById('latencyValue').textContent = avg + 'ms';
+    latencyStats = latencyStats.slice(-10); // Keep last 10
+  }
+  
+  updateBackendIndicators();
 }
 
-function sendCommand(action, data) {
-  backends.forEach((backend) => {
-    if (backend.status === 'connected' && backend.ws.readyState === WebSocket.OPEN) {
-      backend.ws.send(JSON.stringify({type:'control', action, ...data}));
-    }
-  });
+function renderFrame(backend, imageData) {
+  if (!ctx || !currentStrategy) return;
+  
+  const img = new Image();
+  img.onload = () => {
+    requestAnimationFrame(() => {
+      currentStrategy.render(img, backend, strategyState);
+      frameStats.count++;
+    });
+  };
+  img.src = imageData;
 }
 
-async function connectBackend(host, tile) {
+async function connectBackend(host) {
   const wsUrl = host.url.replace(/^http/, 'ws') + '/ws';
   
   try {
     const ws = new WebSocket(wsUrl);
     ws.binaryType = 'arraybuffer';
     
-    const backendData = {
-      ws: ws,
-      host: host,
-      tile: tile,
+    const backend = {
+      ws,
+      host,
       status: 'connecting',
       latency: null,
-      frameCount: 0,
-      lastFrameTime: null,
-      lastStatsUpdate: Date.now(),
-      fps: 0,
-      startTime: Date.now(),
-      tileImage: null
+      role: null,
+      tileRegion: null,
+      startTime: Date.now()
     };
     
-    backends.set(host.url, backendData);
+    backends.set(host.url, backend);
     
     ws.onopen = () => {
-      console.log(`✅ ${host.name} connected (Tile ${tile.index + 1})`);
-      backendData.status = 'authenticating';
-      ws.send(JSON.stringify({type:'control', action:'create', userName: userName}));
+      backend.status = 'authenticating';
+      ws.send(JSON.stringify({ type: 'control', action: 'create', userName }));
     };
     
     ws.onmessage = (e) => {
       if (typeof e.data === 'string') {
-        try {
-          const j = JSON.parse(e.data);
-          if (j.type === 'info' && j.action === 'created') {
-            backendData.status = 'connected';
-            backendData.latency = Date.now() - backendData.startTime;
+        const msg = JSON.parse(e.data);
+        if (msg.type === 'info' && msg.action === 'created') {
+          backend.status = 'connected';
+          backend.latency = Date.now() - backend.startTime;
+          latencyStats.push(backend.latency);
+          
+          // Initialize strategy if all backends connected
+          const allConnected = Array.from(backends.values()).every(b => b.status === 'connected');
+          if (allConnected && !currentStrategy) {
+            currentStrategy = RenderStrategies[renderMode];
+            strategyState = currentStrategy.init(backends);
             
-            // Tell backend to render ONLY its assigned tile region
-            console.log(`📐 Assigning tile region to ${host.name}: x=${tile.x}, width=${tile.width}`);
-            ws.send(JSON.stringify({
-              type: 'control',
-              action: 'setViewport',
-              x: tile.x,
-              y: tile.y,
-              width: tile.width,
-              height: tile.height
-            }));
-            
-            // Start streaming this tile
-            ws.send(JSON.stringify({
-              type: 'control',
-              action: 'startStream'
-            }));
-            
-            updateStats();
+            // Configure each backend based on strategy
+            backends.forEach(b => {
+              if (b.tileRegion) {
+                b.ws.send(JSON.stringify({
+                  type: 'control',
+                  action: 'setViewport',
+                  x: b.tileRegion.x,
+                  y: b.tileRegion.y,
+                  width: b.tileRegion.width,
+                  height: b.tileRegion.height
+                }));
+              }
+              b.ws.send(JSON.stringify({ type: 'control', action: 'startStream' }));
+            });
           }
-        } catch (err) {}
+          
+          updateStats();
+        }
         return;
       }
       
-      // Handle tile frame
-      backendData.frameCount++;
-      backendData.lastFrameTime = Date.now();
-      totalFrameCount++;
-      
-      if (!backendData.lastStatsUpdate) {
-        backendData.lastStatsUpdate = Date.now();
-      }
-      
+      // Binary frame data
       const blob = new Blob([e.data], { type: 'image/jpeg' });
       const url = URL.createObjectURL(blob);
+      renderFrame(backend, url);
       
-      // Update display based on mode
-      if (currentMode === 'composite') {
-        updateCompositeTile(backendData, url);
-      } else {
-        updateSplitTile(backendData, url);
+      if (backend.lastFrameUrl) {
+        setTimeout(() => URL.revokeObjectURL(backend.lastFrameUrl), 500);
       }
-      
-      // Cleanup old frame
-      if (backendData.lastFrameUrl) {
-        const oldUrl = backendData.lastFrameUrl;
-        setTimeout(() => URL.revokeObjectURL(oldUrl), 1000);
-      }
-      backendData.lastFrameUrl = url;
+      backend.lastFrameUrl = url;
     };
     
     ws.onerror = () => {
-      console.error(`Connection error: ${host.name}`);
-      backendData.status = 'error';
+      backend.status = 'error';
       updateStats();
     };
     
     ws.onclose = () => {
-      console.log(`Disconnected: ${host.name}`);
-      backendData.status = 'disconnected';
-      updateStats();
-      
-      setTimeout(() => {
-        console.log(`Reconnecting ${host.name}...`);
-        connectBackend(host, tile);
-      }, 5000);
+      backend.status = 'disconnected';
+      setTimeout(() => connectBackend(host), 5000);
     };
     
   } catch (err) {
-    console.error(`Failed to connect to ${host.name}:`, err);
+    console.error(`Failed to connect ${host.name}:`, err);
   }
 }
 
@@ -659,7 +642,7 @@ async function validateAndLaunch() {
   const key = document.getElementById('key').value.trim();
   
   if (!name || !key) {
-    setStatus("❌ Enter name and key", "error");
+    setStatus("❌ Enter credentials", "error");
     return;
   }
   
@@ -675,9 +658,7 @@ async function validateAndLaunch() {
         validated = true;
         break;
       }
-    } catch (e) {
-      continue;
-    }
+    } catch (e) {}
   }
   
   if (!validated) {
@@ -688,36 +669,41 @@ async function validateAndLaunch() {
   document.getElementById('loginOverlay').classList.add('hidden');
   document.getElementById('mainScreen').style.display = 'flex';
   
-  initCompositeMode();
+  const modeNames = {
+    hybrid: 'HYBRID MODE',
+    tiled: 'TILED MODE',
+    redundant: 'REDUNDANT MODE',
+    roundrobin: 'ROUND ROBIN'
+  };
+  document.getElementById('topTitle').textContent = modeNames[renderMode];
+  document.getElementById('modeBadge').textContent = modeNames[renderMode];
   
-  // Calculate tile regions
-  const tiles = calculateTileRegions(HOST_POOL.length);
-  console.log('📐 Tile layout:', tiles);
-  
-  // Assign each backend a tile and connect
-  HOST_POOL.forEach((host, index) => {
-    connectBackend(host, tiles[index]);
-  });
-  
-  updateStats();
+  initCanvas();
+  HOST_POOL.forEach(host => connectBackend(host));
 }
 
-// Wake servers
+// Mode selection
+document.querySelectorAll('.mode-card').forEach(card => {
+  card.addEventListener('click', () => {
+    document.querySelectorAll('.mode-card').forEach(c => c.classList.remove('selected'));
+    card.classList.add('selected');
+    renderMode = card.dataset.mode;
+  });
+});
+
 document.getElementById('wakeBtn').addEventListener('click', async () => {
   setStatus("☕ Waking servers...", "info");
-  
   let online = 0;
+  
   const checks = HOST_POOL.map(async (host) => {
     try {
       const r = await fetch(host.url + "/health", { cache: 'no-store' });
-      const j = await r.json();
-      if (j.status === "ok") {
+      if ((await r.json()).status === "ok") {
         online++;
         return `✅ ${host.name}`;
       }
-    } catch (e) {
-      return `❌ ${host.name}`;
-    }
+    } catch (e) {}
+    return `❌ ${host.name}`;
   });
   
   const results = await Promise.all(checks);
@@ -725,52 +711,25 @@ document.getElementById('wakeBtn').addEventListener('click', async () => {
     online === HOST_POOL.length ? "success" : "info");
 });
 
-// Event listeners
 document.getElementById('launchBtn').addEventListener('click', validateAndLaunch);
 
 document.getElementById('globalGo').addEventListener('click', () => {
   let url = document.getElementById('globalUrl').value.trim();
-  if (url) {
-    if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
-    sendCommand('navigate', { url });
-  }
+  if (url && !/^https?:\/\//i.test(url)) url = 'https://' + url;
+  if (url) sendCommandToAll('navigate', { url });
 });
 
-document.getElementById('globalBack').addEventListener('click', () => {
-  sendCommand('back', {});
-});
+document.getElementById('globalBack').addEventListener('click', () => sendCommandToAll('back', {}));
+document.getElementById('globalForward').addEventListener('click', () => sendCommandToAll('forward', {}));
 
-document.getElementById('globalForward').addEventListener('click', () => {
-  sendCommand('forward', {});
-});
-
-document.getElementById('modeComposite').addEventListener('click', () => {
-  switchMode('composite');
-});
-
-document.getElementById('modeSplit').addEventListener('click', () => {
-  switchMode('split');
-});
-
-// Keyboard shortcuts
 document.addEventListener('keydown', (e) => {
   if ((e.ctrlKey || e.metaKey) && e.key === 'l') {
     e.preventDefault();
     document.getElementById('globalUrl').focus();
-    document.getElementById('globalUrl').select();
   }
 });
 
-// Stats update loop
 setInterval(updateStats, 1000);
-
-// Cleanup on unload
-window.addEventListener('beforeunload', () => {
-  backends.forEach((backend) => {
-    if (backend.ws) backend.ws.close();
-    if (backend.lastFrameUrl) URL.revokeObjectURL(backend.lastFrameUrl);
-  });
-});
 </script>
 </body>
 </html>
