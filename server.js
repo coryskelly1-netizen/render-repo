@@ -1,4 +1,4 @@
-// server.js - Render-friendly remote browser server
+// server.js - Render-friendly remote browser server with TILED RENDERING
 import express from "express";
 import cors from "cors";
 import http from "http";
@@ -21,31 +21,29 @@ app.use(express.json({ limit: "2mb" }));
 
 /* -------- Config -------- */
 const PORT = process.env.PORT || 3000;
-const MAX_SESSIONS = Number(process.env.MAX_SESSIONS || 1); // keep low for free tier
+const MAX_SESSIONS = Number(process.env.MAX_SESSIONS || 1);
 const SCREENSHOT_QUALITY = Number(process.env.SCREENSHOT_QUALITY || 50);
-const SCREENSHOT_INTERVAL_MS = Number(process.env.SCREENSHOT_INTERVAL_MS || 100); // ~10 FPS
+const SCREENSHOT_INTERVAL_MS = Number(process.env.SCREENSHOT_INTERVAL_MS || 100);
 
-/* -------- Simple keys (replace with env USER_KEYS in production) -------- */
+/* -------- Simple keys -------- */
 const VALID_KEYS = process.env.USER_KEYS
   ? JSON.parse(process.env.USER_KEYS)
   : { "Alice": "8392017", "Bob": "4928371", "Charlie": "1029384" };
 
-/* -------- Puppeteer / Chromium (Render-safe) -------- */
+/* -------- Puppeteer / Chromium -------- */
 let browser = null;
 let browserInitializing = false;
 
 async function ensureBrowser() {
   if (browser && browser.isConnected()) return browser;
   if (browserInitializing) {
-    // wait for existing initialization
     while (browserInitializing) await new Promise(r => setTimeout(r, 100));
     if (browser && browser.isConnected()) return browser;
   }
   browserInitializing = true;
-  console.log("Launching Chromium (Render safe) ...");
+  console.log("🚀 Launching Chromium (tiled rendering mode)...");
 
   try {
-    // sparticuz exposes executablePath (may be async property or function)
     const execPath = typeof chromium.executablePath === "function"
       ? await chromium.executablePath()
       : chromium.executablePath;
@@ -78,7 +76,7 @@ async function ensureBrowser() {
     browserInitializing = false;
     return browser;
   } catch (err) {
-    console.error("❌ Chromium launch failed:", err && err.message ? err.message : err);
+    console.error("❌ Chromium launch failed:", err?.message || err);
     browserInitializing = false;
     throw err;
   }
@@ -86,13 +84,14 @@ async function ensureBrowser() {
 
 /* -------- HTTP routes -------- */
 app.get("/", (req, res) => {
-  res.json({ status: "online" });
+  res.json({ status: "online", mode: "tiled-rendering" });
 });
 
 app.get("/health", (req, res) => {
   res.json({
     status: "ok",
-    browserConnected: !!(browser && browser.isConnected())
+    browserConnected: !!(browser && browser.isConnected()),
+    mode: "tiled-rendering"
   });
 });
 
@@ -100,7 +99,7 @@ app.get("/validate", (req, res) => {
   const { name, key } = req.query;
   if (!name || !key) return res.json({ valid: false });
   const valid = VALID_KEYS[name] === key;
-  if (!valid) console.log(`Invalid login attempt for ${name}`);
+  if (!valid) console.log(`❌ Invalid login attempt for ${name}`);
   res.json({ valid });
 });
 
@@ -108,9 +107,9 @@ app.get("/validate", (req, res) => {
 const server = http.createServer(app);
 const wss = new WebSocketServer({ server, path: "/ws", maxPayload: 50 * 1024 * 1024 });
 
-const sessions = new Map(); // ws -> { ws, page, userName, streaming, lastActivity }
+const sessions = new Map();
 
-/* helper - create new browser page session */
+/* Create new browser page session */
 async function createSession(ws, userName) {
   if (sessions.size >= MAX_SESSIONS) {
     throw new Error("Maximum sessions reached");
@@ -120,7 +119,8 @@ async function createSession(ws, userName) {
   const page = await b.newPage();
 
   await page.setViewport({ width: 1366, height: 768 });
-  // block heavy resources to reduce memory/CPU
+  
+  // Block heavy resources to reduce memory/CPU
   await page.setRequestInterception(true);
   page.on("request", req => {
     const t = req.resourceType();
@@ -128,31 +128,72 @@ async function createSession(ws, userName) {
     else req.continue();
   });
 
-  const session = { ws, page, userName, streaming: false, lastActivity: Date.now(), createdAt: Date.now() };
+  const session = {
+    ws,
+    page,
+    userName,
+    streaming: false,
+    lastActivity: Date.now(),
+    createdAt: Date.now(),
+    tileRegion: null,  // Will store { x, y, width, height }
+    quality: SCREENSHOT_QUALITY,
+    interval: SCREENSHOT_INTERVAL_MS
+  };
+  
   sessions.set(ws, session);
   console.log(`✅ Session created for ${userName} (${sessions.size}/${MAX_SESSIONS})`);
   return session;
 }
 
-/* streaming loop - send JPEG frames to client */
+/* Capture screenshot - TILED or FULL */
+async function captureScreenshot(session) {
+  try {
+    const options = {
+      type: "jpeg",
+      quality: session.quality || SCREENSHOT_QUALITY,
+      optimizeForSpeed: true
+    };
+
+    // If tile region is set, capture only that region
+    if (session.tileRegion) {
+      options.clip = {
+        x: session.tileRegion.x,
+        y: session.tileRegion.y,
+        width: session.tileRegion.width,
+        height: session.tileRegion.height
+      };
+    }
+
+    return await session.page.screenshot(options);
+  } catch (err) {
+    console.warn(`Screenshot error for ${session.userName}:`, err?.message || err);
+    throw err;
+  }
+}
+
+/* Streaming loop - send frames to client */
 async function startStream(session) {
   if (session.streaming) return;
   session.streaming = true;
   const ws = session.ws;
   const page = session.page;
-  console.log(`📹 Starting stream for ${session.userName}`);
+  
+  const tileInfo = session.tileRegion 
+    ? `tile x=${session.tileRegion.x} w=${session.tileRegion.width}` 
+    : "full frame";
+  console.log(`📹 Starting stream for ${session.userName} (${tileInfo})`);
 
   try {
     while (session.streaming && ws.readyState === ws.OPEN) {
       try {
-        const frame = await page.screenshot({ type: "jpeg", quality: SCREENSHOT_QUALITY, optimizeForSpeed: true });
+        const frame = await captureScreenshot(session);
         if (ws.readyState === ws.OPEN) ws.send(frame);
         session.lastActivity = Date.now();
       } catch (err) {
-        console.warn("Screenshot error:", err && err.message ? err.message : err);
+        console.warn("Screenshot error:", err?.message || err);
         break;
       }
-      await new Promise(r => setTimeout(r, SCREENSHOT_INTERVAL_MS));
+      await new Promise(r => setTimeout(r, session.interval || SCREENSHOT_INTERVAL_MS));
     }
   } finally {
     session.streaming = false;
@@ -160,17 +201,19 @@ async function startStream(session) {
   }
 }
 
-/* cleanup session */
+/* Cleanup session */
 async function cleanupSession(ws) {
   const s = sessions.get(ws);
   if (!s) return;
   s.streaming = false;
-  try { if (s.page && !s.page.isClosed()) await s.page.close(); } catch {}
+  try { 
+    if (s.page && !s.page.isClosed()) await s.page.close(); 
+  } catch {}
   sessions.delete(ws);
   console.log(`🧹 Cleaned session for ${s.userName}`);
 }
 
-/* WS connection handling */
+/* WebSocket connection handling */
 wss.on("connection", ws => {
   console.log("🔌 WebSocket connection");
   ws.isAlive = true;
@@ -178,12 +221,17 @@ wss.on("connection", ws => {
 
   ws.on("message", async raw => {
     let msg;
-    try { msg = JSON.parse(raw.toString()); } catch { return; }
+    try { 
+      msg = JSON.parse(raw.toString()); 
+    } catch { 
+      return; 
+    }
+    
     if (msg.type !== "control") return;
 
     let session = sessions.get(ws);
 
-    // create session
+    // Create session
     if (msg.action === "create") {
       try {
         session = await createSession(ws, msg.userName || "guest");
@@ -201,40 +249,76 @@ wss.on("connection", ws => {
 
     session.lastActivity = Date.now();
 
-    // actions
+    // Handle actions
     try {
       switch (msg.action) {
+        case "setViewport": {
+          // Set tile region for this backend
+          session.tileRegion = {
+            x: Number(msg.x) || 0,
+            y: Number(msg.y) || 0,
+            width: Number(msg.width) || 1366,
+            height: Number(msg.height) || 768
+          };
+          console.log(`📐 Viewport set for ${session.userName}: x=${session.tileRegion.x}, width=${session.tileRegion.width}`);
+          ws.send(JSON.stringify({ 
+            type: "info", 
+            action: "viewportSet",
+            region: session.tileRegion
+          }));
+          break;
+        }
+        
+        case "setQuality": {
+          // Update screenshot quality and interval dynamically
+          if (msg.quality !== undefined) {
+            session.quality = Math.max(10, Math.min(100, Number(msg.quality)));
+          }
+          if (msg.interval !== undefined) {
+            session.interval = Math.max(50, Number(msg.interval));
+          }
+          console.log(`⚙️ Quality updated for ${session.userName}: q=${session.quality}, int=${session.interval}ms`);
+          break;
+        }
+        
         case "startStream":
           startStream(session);
           break;
+          
         case "navigate": {
           let url = msg.url || "";
           if (!/^https?:\/\//i.test(url)) url = "https://" + url;
           await session.page.goto(url, { waitUntil: "domcontentloaded", timeout: 30000 }).catch(() => {});
           break;
         }
+        
         case "click":
           await session.page.mouse.click(Math.round(msg.x), Math.round(msg.y)).catch(() => {});
           break;
+          
         case "scroll":
           await session.page.mouse.wheel({ deltaY: Number(msg.dy) || 0 }).catch(() => {});
           break;
+          
         case "type":
           if (msg.text) await session.page.keyboard.type(String(msg.text)).catch(() => {});
           break;
+          
         case "back":
           await session.page.goBack({ waitUntil: "domcontentloaded" }).catch(() => {});
           break;
+          
         case "forward":
           await session.page.goForward({ waitUntil: "domcontentloaded" }).catch(() => {});
           break;
+          
         case "close":
           await cleanupSession(ws);
           ws.close();
           break;
       }
     } catch (err) {
-      console.error("Action error:", err && err.message ? err.message : err);
+      console.error("Action error:", err?.message || err);
     }
   });
 
@@ -244,12 +328,12 @@ wss.on("connection", ws => {
   });
 
   ws.on("error", err => {
-    console.error("WS error:", err && err.message ? err.message : err);
+    console.error("WS error:", err?.message || err);
     cleanupSession(ws);
   });
 });
 
-/* heartbeat - clean dead sockets */
+/* Heartbeat - clean dead sockets */
 const heartbeat = setInterval(() => {
   wss.clients.forEach(ws => {
     if (!ws.isAlive) {
@@ -262,27 +346,31 @@ const heartbeat = setInterval(() => {
   });
 }, 20000);
 
-/* session timeout cleanup (idle) */
+/* Session timeout cleanup (idle) */
 setInterval(() => {
   const now = Date.now();
   for (const [ws, s] of sessions) {
-    if (now - s.lastActivity > (20 * 60 * 1000)) { // 20 min
+    if (now - s.lastActivity > (20 * 60 * 1000)) {
       try { ws.terminate(); } catch {}
       cleanupSession(ws);
     }
   }
 }, 60000);
 
-/* graceful shutdown */
+/* Graceful shutdown */
 process.on("SIGTERM", async () => {
   console.log("SIGTERM - shutting down");
   clearInterval(heartbeat);
-  for (const [ws] of sessions) { try { ws.terminate(); } catch {} }
-  if (browser) try { await browser.close(); } catch {}
+  for (const [ws] of sessions) { 
+    try { ws.terminate(); } catch {} 
+  }
+  if (browser) try { 
+    await browser.close(); 
+  } catch {}
   server.close(() => process.exit(0));
 });
 
-/* start server listening */
+/* Start server */
 server.listen(PORT, "0.0.0.0", () => {
-  console.log("Server live on port", PORT);
+  console.log(`🚀 Server live on port ${PORT} (TILED RENDERING MODE)`);
 });

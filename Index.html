@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Split-Screen Parallel Browser</title>
+<title>Tiled Parallel Browser</title>
 <style>
   * { box-sizing: border-box; }
   body { 
@@ -29,7 +29,7 @@
   .login-overlay.hidden { display:none; }
   
   .login-box {
-    max-width:400px;
+    max-width:450px;
     width:90%;
     padding:30px;
     background:#1a1f3a;
@@ -166,40 +166,38 @@
     flex:1;
     position:relative;
     overflow:hidden;
+    background:#000;
   }
   
-  /* Composite Canvas Mode */
+  /* Tiled composite view */
   .composite-view {
     width:100%;
     height:100%;
     position:relative;
-    background:#000;
+    display:flex;
+    align-items:center;
+    justify-content:center;
   }
   .composite-canvas {
-    position:absolute;
-    top:50%;
-    left:50%;
-    transform:translate(-50%, -50%);
     max-width:100%;
     max-height:100%;
     object-fit:contain;
     cursor:crosshair;
+    box-shadow:0 0 40px rgba(0,0,0,0.8);
   }
   
-  /* Split Screen Mode */
+  /* Split tile view */
   .split-view {
     width:100%;
     height:100%;
-    display:grid;
+    display:flex;
     gap:2px;
     background:#2d3748;
     padding:2px;
   }
-  .split-view.cols-1 { grid-template-columns: 1fr; }
-  .split-view.cols-2 { grid-template-columns: 1fr 1fr; }
-  .split-view.cols-3 { grid-template-columns: 1fr 1fr 1fr; }
   
   .split-pane {
+    flex:1;
     background:#000;
     position:relative;
     overflow:hidden;
@@ -208,7 +206,7 @@
   .split-pane img {
     width:100%;
     height:100%;
-    object-fit:contain;
+    object-fit:cover;
     display:block;
   }
   .pane-label {
@@ -221,6 +219,18 @@
     border-radius:4px;
     font-size:10px;
     font-weight:700;
+    pointer-events:none;
+    z-index:10;
+  }
+  .pane-tile-info {
+    position:absolute;
+    top:5px;
+    right:5px;
+    background:rgba(0,0,0,0.9);
+    color:#4ade80;
+    padding:4px 8px;
+    border-radius:4px;
+    font-size:9px;
     pointer-events:none;
     z-index:10;
   }
@@ -247,9 +257,18 @@
     font-size:12px;
   }
   
-  @keyframes pulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.5; }
+  .tile-badge {
+    position:absolute;
+    top:10px;
+    right:10px;
+    background:rgba(74,222,128,0.9);
+    color:#000;
+    padding:6px 12px;
+    border-radius:6px;
+    font-size:10px;
+    font-weight:700;
+    pointer-events:none;
+    z-index:10;
   }
 </style>
 </head>
@@ -257,21 +276,21 @@
 
 <div class="login-overlay" id="loginOverlay">
   <div class="login-box">
-    <h1>🔀 Split-Screen Browser</h1>
-    <div class="subtitle">Multiple backends rendering the same page together</div>
+    <h1>🔲 Tiled Parallel Browser</h1>
+    <div class="subtitle">Each backend renders a slice of the screen</div>
     
     <input id="name" placeholder="Your name" value="Alice">
     <input id="key" placeholder="Access key" type="password" value="8392017">
     
     <button id="wakeBtn" style="background:#ffd34d;color:#000">☕ Wake All Servers</button>
-    <button id="launchBtn">🚀 Launch Split Browser</button>
+    <button id="launchBtn">🚀 Launch Tiled Browser</button>
     <div id="loginStatus" class="status"></div>
   </div>
 </div>
 
 <div class="main-screen" id="mainScreen" style="display:none">
   <div class="top-bar">
-    <h1>🔀 SPLIT BROWSER</h1>
+    <h1>🔲 TILED RENDERING</h1>
     <div class="url-bar">
       <input id="globalUrl" placeholder="Navigate to..." value="https://example.com">
       <button id="globalGo">Go</button>
@@ -281,12 +300,12 @@
     
     <div class="mode-toggle">
       <button class="mode-btn active" id="modeComposite">Composite</button>
-      <button class="mode-btn" id="modeSplit">Split View</button>
+      <button class="mode-btn" id="modeSplit">Split Tiles</button>
     </div>
     
     <div class="stats-mini">
       <div class="stat-mini">FPS: <span id="fpsMini">0</span></div>
-      <div class="stat-mini">Workers: <span id="workersMini">0</span></div>
+      <div class="stat-mini">Tiles: <span id="tilesMini">0</span></div>
     </div>
   </div>
   
@@ -304,15 +323,21 @@ const HOST_POOL = [
   { name: "R4", url: "https://render-repo-791m.onrender.com" },
 ];
 
+const VIEWPORT_WIDTH = 1366;
+const VIEWPORT_HEIGHT = 768;
+
 let backends = new Map();
 let userName = "";
-let currentMode = 'composite'; // 'composite' or 'split'
+let currentMode = 'composite';
 let totalFrameCount = 0;
 let lastStatsUpdate = Date.now();
 
-// Canvas for composite mode
+// Canvas for tiled composite
 let compositeCanvas = null;
 let compositeCtx = null;
+
+// Track which tiles are loaded
+let tilesLoaded = new Set();
 
 function setStatus(msg, type) {
   const el = document.getElementById("loginStatus");
@@ -320,55 +345,79 @@ function setStatus(msg, type) {
   el.className = "status show " + (type||"");
 }
 
+// Calculate tile regions for each backend
+function calculateTileRegions(numBackends) {
+  const tiles = [];
+  const tileWidth = Math.floor(VIEWPORT_WIDTH / numBackends);
+  
+  for (let i = 0; i < numBackends; i++) {
+    const x = i * tileWidth;
+    const width = (i === numBackends - 1) ? (VIEWPORT_WIDTH - x) : tileWidth; // Last tile takes remainder
+    
+    tiles.push({
+      x: x,
+      y: 0,
+      width: width,
+      height: VIEWPORT_HEIGHT,
+      index: i
+    });
+  }
+  
+  return tiles;
+}
+
 function initCompositeMode() {
   const container = document.getElementById('browserContainer');
   container.innerHTML = `
     <div class="composite-view">
-      <canvas id="compositeCanvas" class="composite-canvas" width="1366" height="768"></canvas>
+      <canvas id="compositeCanvas" class="composite-canvas" width="${VIEWPORT_WIDTH}" height="${VIEWPORT_HEIGHT}"></canvas>
+      <div class="tile-badge">TILED: ${backends.size} slices</div>
     </div>
   `;
   
   compositeCanvas = document.getElementById('compositeCanvas');
-  compositeCtx = compositeCanvas.getContext('2d');
+  compositeCtx = compositeCanvas.getContext('2d', { 
+    alpha: false,
+    desynchronized: true
+  });
   
-  // Setup click handler
+  // Fill with dark background
+  compositeCtx.fillStyle = '#1a1a1a';
+  compositeCtx.fillRect(0, 0, VIEWPORT_WIDTH, VIEWPORT_HEIGHT);
+  
   compositeCanvas.addEventListener('click', handleCompositeClick);
   compositeCanvas.addEventListener('wheel', handleCompositeScroll, {passive: false});
 }
 
 function initSplitMode() {
   const container = document.getElementById('browserContainer');
-  const cols = Math.min(backends.size, 3);
   
-  container.innerHTML = `<div class="split-view cols-${cols}" id="splitGrid"></div>`;
+  container.innerHTML = `<div class="split-view" id="splitGrid"></div>`;
   
   const grid = document.getElementById('splitGrid');
-  let index = 0;
   
   backends.forEach((backend, url) => {
+    const tile = backend.tile;
     const pane = document.createElement('div');
     pane.className = 'split-pane';
-    pane.id = 'pane-' + index;
+    pane.id = 'pane-' + tile.index;
     pane.innerHTML = `
       <div class="pane-label">${backend.host.name}</div>
-      <div class="pane-stats" id="stats-${index}">0 fps</div>
-      <div class="placeholder">Connecting...</div>
+      <div class="pane-tile-info">Tile ${tile.index + 1}<br>x:${tile.x} w:${tile.width}</div>
+      <div class="pane-stats" id="stats-${tile.index}">0 fps</div>
+      <div class="placeholder">Loading tile...</div>
     `;
     
-    // Setup click handler for this pane
-    pane.addEventListener('click', (e) => handlePaneClick(e, pane));
+    pane.addEventListener('click', (e) => handlePaneClick(e, pane, backend));
     pane.addEventListener('wheel', (e) => handlePaneScroll(e), {passive: false});
     
-    backend.paneIndex = index;
     grid.appendChild(pane);
-    index++;
   });
 }
 
 function switchMode(mode) {
   currentMode = mode;
   
-  // Update button states
   document.getElementById('modeComposite').classList.toggle('active', mode === 'composite');
   document.getElementById('modeSplit').classList.toggle('active', mode === 'split');
   
@@ -381,8 +430,8 @@ function switchMode(mode) {
 
 function handleCompositeClick(e) {
   const rect = compositeCanvas.getBoundingClientRect();
-  const scaleX = 1366 / rect.width;
-  const scaleY = 768 / rect.height;
+  const scaleX = VIEWPORT_WIDTH / rect.width;
+  const scaleY = VIEWPORT_HEIGHT / rect.height;
   const x = Math.round((e.clientX - rect.left) * scaleX);
   const y = Math.round((e.clientY - rect.top) * scaleY);
   
@@ -394,15 +443,21 @@ function handleCompositeScroll(e) {
   e.preventDefault();
 }
 
-function handlePaneClick(e, pane) {
+function handlePaneClick(e, pane, backend) {
   if (e.target.tagName !== 'IMG') return;
   
   const img = e.target;
   const rect = img.getBoundingClientRect();
-  const x = Math.round((e.clientX - rect.left) * (1366 / rect.width));
-  const y = Math.round((e.clientY - rect.top) * (768 / rect.height));
+  const tile = backend.tile;
   
-  sendCommand('click', { x, y });
+  // Calculate click position relative to the TILE
+  const tileX = Math.round((e.clientX - rect.left) * (tile.width / rect.width));
+  
+  // Convert to absolute page coordinates
+  const absoluteX = tile.x + tileX;
+  const absoluteY = Math.round((e.clientY - rect.top) * (VIEWPORT_HEIGHT / rect.height));
+  
+  sendCommand('click', { x: absoluteX, y: absoluteY });
 }
 
 function handlePaneScroll(e) {
@@ -410,47 +465,41 @@ function handlePaneScroll(e) {
   e.preventDefault();
 }
 
-function updateCompositeFrame(backendUrl, imageUrl) {
+function updateCompositeTile(backend, imageUrl) {
   if (!compositeCtx) return;
   
-  const backend = backends.get(backendUrl);
-  if (!backend.image) {
-    backend.image = new Image();
+  const tile = backend.tile;
+  
+  if (!backend.tileImage) {
+    backend.tileImage = new Image();
   }
   
-  backend.image.onload = () => {
-    // Draw all backend images onto the composite canvas
-    // We blend them by taking the most recent frame
-    compositeCtx.clearRect(0, 0, 1366, 768);
-    
-    // Draw the most recent frame from any backend
-    let latestBackend = null;
-    let latestTime = 0;
-    
-    backends.forEach((b, url) => {
-      if (b.lastFrameTime && b.lastFrameTime > latestTime && b.image && b.image.complete) {
-        latestBackend = b;
-        latestTime = b.lastFrameTime;
-      }
+  backend.tileImage.onload = () => {
+    requestAnimationFrame(() => {
+      // Draw this backend's tile slice onto the composite canvas
+      compositeCtx.drawImage(
+        backend.tileImage,
+        tile.x,      // destination x
+        tile.y,      // destination y
+        tile.width,  // destination width
+        tile.height  // destination height
+      );
+      
+      tilesLoaded.add(tile.index);
     });
-    
-    if (latestBackend && latestBackend.image) {
-      compositeCtx.drawImage(latestBackend.image, 0, 0, 1366, 768);
-    }
   };
   
-  backend.image.src = imageUrl;
+  backend.tileImage.src = imageUrl;
 }
 
-function updateSplitFrame(backendUrl, imageUrl) {
-  const backend = backends.get(backendUrl);
-  if (backend.paneIndex === undefined) return;
-  
-  const pane = document.getElementById('pane-' + backend.paneIndex);
+function updateSplitTile(backend, imageUrl) {
+  const tile = backend.tile;
+  const pane = document.getElementById('pane-' + tile.index);
   if (!pane) return;
   
   pane.innerHTML = `
     <div class="pane-label">${backend.host.name}</div>
+    <div class="pane-tile-info">Tile ${tile.index + 1}<br>x:${tile.x} w:${tile.width}</div>
     <div class="pane-stats">${backend.fps || 0} fps</div>
     <img src="${imageUrl}" alt="${backend.host.name}">
   `;
@@ -459,7 +508,6 @@ function updateSplitFrame(backendUrl, imageUrl) {
 function updateStats() {
   const connected = Array.from(backends.values()).filter(b => b.status === 'connected');
   
-  // Calculate FPS
   const now = Date.now();
   backends.forEach((backend) => {
     if (backend.frameCount > 0 && backend.lastStatsUpdate) {
@@ -469,25 +517,24 @@ function updateStats() {
         backend.frameCount = 0;
         backend.lastStatsUpdate = now;
         
-        // Update split view stats
-        if (currentMode === 'split' && backend.paneIndex !== undefined) {
-          const statsEl = document.getElementById('stats-' + backend.paneIndex);
+        if (currentMode === 'split' && backend.tile) {
+          const statsEl = document.getElementById('stats-' + backend.tile.index);
           if (statsEl) statsEl.textContent = backend.fps + ' fps';
         }
       }
     }
   });
   
-  // Update combined FPS
   const elapsed = (now - lastStatsUpdate) / 1000;
   if (elapsed > 1) {
-    const combinedFps = Math.round(totalFrameCount / elapsed);
-    document.getElementById('fpsMini').textContent = combinedFps;
+    const fps = Math.round(totalFrameCount / elapsed);
+    document.getElementById('fpsMini').textContent = fps;
+    
     totalFrameCount = 0;
     lastStatsUpdate = now;
   }
   
-  document.getElementById('workersMini').textContent = connected.length;
+  document.getElementById('tilesMini').textContent = `${connected.length}/${backends.size}`;
 }
 
 function sendCommand(action, data) {
@@ -498,7 +545,7 @@ function sendCommand(action, data) {
   });
 }
 
-async function connectBackend(host, index) {
+async function connectBackend(host, tile) {
   const wsUrl = host.url.replace(/^http/, 'ws') + '/ws';
   
   try {
@@ -508,6 +555,7 @@ async function connectBackend(host, index) {
     const backendData = {
       ws: ws,
       host: host,
+      tile: tile,
       status: 'connecting',
       latency: null,
       frameCount: 0,
@@ -515,14 +563,13 @@ async function connectBackend(host, index) {
       lastStatsUpdate: Date.now(),
       fps: 0,
       startTime: Date.now(),
-      paneIndex: index,
-      image: null
+      tileImage: null
     };
     
     backends.set(host.url, backendData);
     
     ws.onopen = () => {
-      console.log(`✅ Connected to ${host.name}`);
+      console.log(`✅ ${host.name} connected (Tile ${tile.index + 1})`);
       backendData.status = 'authenticating';
       ws.send(JSON.stringify({type:'control', action:'create', userName: userName}));
     };
@@ -534,23 +581,31 @@ async function connectBackend(host, index) {
           if (j.type === 'info' && j.action === 'created') {
             backendData.status = 'connected';
             backendData.latency = Date.now() - backendData.startTime;
-            console.log(`✅ ${host.name} ready (${backendData.latency}ms)`);
             
-            ws.send(JSON.stringify({type:'control', action:'startStream'}));
+            // Tell backend to render ONLY its assigned tile region
+            console.log(`📐 Assigning tile region to ${host.name}: x=${tile.x}, width=${tile.width}`);
+            ws.send(JSON.stringify({
+              type: 'control',
+              action: 'setViewport',
+              x: tile.x,
+              y: tile.y,
+              width: tile.width,
+              height: tile.height
+            }));
+            
+            // Start streaming this tile
+            ws.send(JSON.stringify({
+              type: 'control',
+              action: 'startStream'
+            }));
+            
             updateStats();
-          }
-          if (j.type === 'error') {
-            console.error(`Error from ${host.name}:`, j.message);
-            backendData.status = 'error';
           }
         } catch (err) {}
         return;
       }
       
-      // Handle frame
-      const blob = new Blob([e.data], { type: 'image/jpeg' });
-      const url = URL.createObjectURL(blob);
-      
+      // Handle tile frame
       backendData.frameCount++;
       backendData.lastFrameTime = Date.now();
       totalFrameCount++;
@@ -559,20 +614,22 @@ async function connectBackend(host, index) {
         backendData.lastStatsUpdate = Date.now();
       }
       
-      // Update display based on current mode
+      const blob = new Blob([e.data], { type: 'image/jpeg' });
+      const url = URL.createObjectURL(blob);
+      
+      // Update display based on mode
       if (currentMode === 'composite') {
-        updateCompositeFrame(host.url, url);
+        updateCompositeTile(backendData, url);
       } else {
-        updateSplitFrame(host.url, url);
+        updateSplitTile(backendData, url);
       }
       
       // Cleanup old frame
       if (backendData.lastFrameUrl) {
-        setTimeout(() => URL.revokeObjectURL(backendData.lastFrameUrl), 1000);
+        const oldUrl = backendData.lastFrameUrl;
+        setTimeout(() => URL.revokeObjectURL(oldUrl), 1000);
       }
       backendData.lastFrameUrl = url;
-      
-      updateStats();
     };
     
     ws.onerror = () => {
@@ -587,8 +644,8 @@ async function connectBackend(host, index) {
       updateStats();
       
       setTimeout(() => {
-        console.log(`Reconnecting to ${host.name}...`);
-        connectBackend(host, index);
+        console.log(`Reconnecting ${host.name}...`);
+        connectBackend(host, tile);
       }, 5000);
     };
     
@@ -607,7 +664,7 @@ async function validateAndLaunch() {
   }
   
   userName = name;
-  setStatus("🔍 Validating credentials...", "info");
+  setStatus("🔍 Validating...", "info");
   
   let validated = false;
   for (const host of HOST_POOL) {
@@ -631,12 +688,15 @@ async function validateAndLaunch() {
   document.getElementById('loginOverlay').classList.add('hidden');
   document.getElementById('mainScreen').style.display = 'flex';
   
-  // Initialize composite mode
   initCompositeMode();
   
-  // Connect to all backends
+  // Calculate tile regions
+  const tiles = calculateTileRegions(HOST_POOL.length);
+  console.log('📐 Tile layout:', tiles);
+  
+  // Assign each backend a tile and connect
   HOST_POOL.forEach((host, index) => {
-    connectBackend(host, index);
+    connectBackend(host, tiles[index]);
   });
   
   updateStats();
@@ -644,7 +704,7 @@ async function validateAndLaunch() {
 
 // Wake servers
 document.getElementById('wakeBtn').addEventListener('click', async () => {
-  setStatus("☕ Waking all servers...", "info");
+  setStatus("☕ Waking servers...", "info");
   
   let online = 0;
   const checks = HOST_POOL.map(async (host) => {
@@ -653,15 +713,15 @@ document.getElementById('wakeBtn').addEventListener('click', async () => {
       const j = await r.json();
       if (j.status === "ok") {
         online++;
-        return `✅ ${host.name}: Online`;
+        return `✅ ${host.name}`;
       }
     } catch (e) {
-      return `❌ ${host.name}: Offline`;
+      return `❌ ${host.name}`;
     }
   });
   
   const results = await Promise.all(checks);
-  setStatus(results.join('<br>') + `<br><br><strong>Online: ${online}/${HOST_POOL.length}</strong>`, 
+  setStatus(results.join('<br>') + `<br><br><strong>${online}/${HOST_POOL.length} online</strong>`, 
     online === HOST_POOL.length ? "success" : "info");
 });
 
@@ -703,6 +763,14 @@ document.addEventListener('keydown', (e) => {
 
 // Stats update loop
 setInterval(updateStats, 1000);
+
+// Cleanup on unload
+window.addEventListener('beforeunload', () => {
+  backends.forEach((backend) => {
+    if (backend.ws) backend.ws.close();
+    if (backend.lastFrameUrl) URL.revokeObjectURL(backend.lastFrameUrl);
+  });
+});
 </script>
 </body>
 </html>
