@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Optimal Multi-Backend Browser</title>
+<title>Multi-User Browser Proxy</title>
 <style>
   * { box-sizing: border-box; }
   body { 
@@ -29,7 +29,7 @@
   .login-overlay.hidden { display:none; }
   
   .login-box {
-    max-width:500px;
+    max-width:400px;
     width:90%;
     padding:30px;
     background:#1a1f3a;
@@ -49,51 +49,6 @@
     opacity:0.7;
     font-size:13px;
     margin-bottom:20px;
-  }
-  
-  .mode-selector {
-    display:grid;
-    grid-template-columns:1fr 1fr;
-    gap:10px;
-    margin:20px 0;
-  }
-  .mode-card {
-    background:#0f1419;
-    padding:15px;
-    border-radius:8px;
-    border:2px solid #2d3748;
-    cursor:pointer;
-    transition:all 0.2s;
-    text-align:center;
-  }
-  .mode-card:hover { border-color:#4a5de6; }
-  .mode-card.selected { 
-    border-color:#4ade80; 
-    background:#1e3d2f;
-  }
-  .mode-icon {
-    font-size:32px;
-    margin-bottom:8px;
-  }
-  .mode-title {
-    font-size:14px;
-    font-weight:700;
-    color:#fff;
-    margin-bottom:5px;
-  }
-  .mode-desc {
-    font-size:11px;
-    color:#888;
-  }
-  .mode-badge {
-    display:inline-block;
-    padding:2px 6px;
-    background:#4ade80;
-    color:#000;
-    border-radius:3px;
-    font-size:9px;
-    font-weight:700;
-    margin-top:5px;
   }
   
   input { 
@@ -121,6 +76,7 @@
   }
   button:hover { background:#5a6df6; transform:translateY(-1px); }
   button:disabled { background:#2d3748; cursor:not-allowed; }
+  .wake-btn { background:#ffd34d !important; color:#000 !important; }
   
   .status { 
     padding:10px; 
@@ -156,7 +112,6 @@
     background:linear-gradient(135deg,#667eea,#764ba2);
     -webkit-background-clip:text;
     -webkit-text-fill-color:transparent;
-    background-clip:text;
     white-space:nowrap;
     font-weight:900;
   }
@@ -203,9 +158,16 @@
     height:8px;
     border-radius:50%;
     background:#2d3748;
+    position:relative;
   }
-  .backend-dot.active { background:#4ade80; animation:pulse 2s infinite; }
-  .backend-dot.primary { background:#4a5de6; box-shadow:0 0 8px #4a5de6; }
+  .backend-dot.active { 
+    background:#4ade80; 
+    animation:pulse 2s infinite; 
+  }
+  .backend-dot.rendering {
+    background:#4a5de6;
+    box-shadow:0 0 8px #4a5de6;
+  }
   
   @keyframes pulse {
     0%, 100% { opacity:1; }
@@ -227,6 +189,7 @@
     object-fit:contain;
     cursor:crosshair;
     box-shadow:0 0 40px rgba(0,0,0,0.8);
+    outline:none;
   }
   
   .mode-badge-corner {
@@ -243,70 +206,19 @@
     z-index:10;
     box-shadow:0 4px 12px rgba(0,0,0,0.3);
   }
-  
-  .debug-panel {
-    position:absolute;
-    bottom:15px;
-    left:15px;
-    background:rgba(26,31,58,0.95);
-    padding:12px;
-    border-radius:8px;
-    font-size:10px;
-    color:#888;
-    max-width:300px;
-    display:none;
-  }
-  .debug-panel.show { display:block; }
-  .debug-line {
-    margin:3px 0;
-  }
-  .debug-label {
-    color:#4a5de6;
-    font-weight:700;
-  }
-  
-  .placeholder {
-    color:#666;
-    font-size:16px;
-    text-align:center;
-  }
 </style>
 </head>
 <body>
 
 <div class="login-overlay" id="loginOverlay">
   <div class="login-box">
-    <h1>🚀 Multi-Backend Browser</h1>
-    <div class="subtitle">Intelligent distributed rendering system</div>
+    <h1>🚀 Multi-User Browser</h1>
+    <div class="subtitle">Round-robin rendering - Maximum FPS with all 5 backends!</div>
     
     <input id="name" placeholder="Your name" value="Alice">
     <input id="key" placeholder="Access key" type="password" value="8392017">
     
-    <div class="mode-selector">
-      <div class="mode-card selected" data-mode="hybrid" id="modeHybrid">
-        <div class="mode-icon">⚡</div>
-        <div class="mode-title">Hybrid</div>
-        <div class="mode-desc">Best of both worlds</div>
-        <div class="mode-badge">RECOMMENDED</div>
-      </div>
-      <div class="mode-card" data-mode="tiled" id="modeTiled">
-        <div class="mode-icon">🔲</div>
-        <div class="mode-title">Tiled</div>
-        <div class="mode-desc">Max parallelism</div>
-      </div>
-      <div class="mode-card" data-mode="redundant" id="modeRedundant">
-        <div class="mode-icon">🛡️</div>
-        <div class="mode-title">Redundant</div>
-        <div class="mode-desc">High reliability</div>
-      </div>
-      <div class="mode-card" data-mode="roundrobin" id="modeRoundRobin">
-        <div class="mode-icon">🔄</div>
-        <div class="mode-title">Round Robin</div>
-        <div class="mode-desc">Load balanced</div>
-      </div>
-    </div>
-    
-    <button id="wakeBtn" style="background:#ffd34d;color:#000">☕ Wake All Servers</button>
+    <button class="wake-btn" id="wakeBtn">☕ Wake All Servers</button>
     <button id="launchBtn">🚀 Launch Browser</button>
     <div id="loginStatus" class="status"></div>
   </div>
@@ -314,7 +226,7 @@
 
 <div class="main-screen" id="mainScreen" style="display:none">
   <div class="top-bar">
-    <h1 id="topTitle">MULTI-BACKEND BROWSER</h1>
+    <h1>ROUND ROBIN MODE</h1>
     <div class="url-bar">
       <input id="globalUrl" placeholder="Navigate to..." value="https://example.com">
       <button id="globalGo">Go</button>
@@ -331,14 +243,17 @@
         <span>Latency:</span>
         <span class="stat-value" id="latencyValue">0ms</span>
       </div>
+      <div class="stat-item">
+        <span>Active:</span>
+        <span class="stat-value" id="activeBackend">-</span>
+      </div>
       <div class="backend-indicators" id="backendIndicators"></div>
     </div>
   </div>
   
   <div class="browser-viewport" id="browserViewport">
-    <canvas id="viewportCanvas" class="viewport-canvas" width="1366" height="768"></canvas>
-    <div class="mode-badge-corner" id="modeBadge">HYBRID MODE</div>
-    <div class="debug-panel" id="debugPanel"></div>
+    <canvas id="viewportCanvas" class="viewport-canvas" width="1366" height="768" tabindex="0"></canvas>
+    <div class="mode-badge-corner">5x FRAME INTERLEAVING</div>
   </div>
 </div>
 
@@ -348,129 +263,27 @@ const HOST_POOL = [
   { name: "R2", url: "https://render-repo-0x73.onrender.com" },
   { name: "R3", url: "https://render-repo-f64m.onrender.com" },
   { name: "R4", url: "https://render-repo-791m.onrender.com" },
+  { name: "R5", url: "https://render-repo-l0tw.onrender.com" },
 ];
 
 const VIEWPORT_WIDTH = 1366;
 const VIEWPORT_HEIGHT = 768;
 
-// System state
 let backends = new Map();
 let userName = "";
-let renderMode = 'hybrid';
 let canvas = null;
 let ctx = null;
+let currentRenderingBackend = null;
+let backendRotationIndex = 0;
 
 // Performance tracking
 let frameStats = { count: 0, lastUpdate: Date.now() };
 let latencyStats = [];
 
-// Rendering strategies
-const RenderStrategies = {
-  // HYBRID: Primary backend (fastest) + tiled backups for failed regions
-  hybrid: {
-    init: (backends) => {
-      const fastest = selectFastest(backends);
-      fastest.role = 'primary';
-      fastest.tileRegion = null; // Full screen
-      
-      const others = Array.from(backends.values()).filter(b => b !== fastest);
-      assignTiles(others, true); // Assign tiles to backups
-      
-      return { primary: fastest, backups: others };
-    },
-    render: (frame, backend) => {
-      if (backend.role === 'primary') {
-        ctx.drawImage(frame, 0, 0, VIEWPORT_WIDTH, VIEWPORT_HEIGHT);
-      } else if (backend.tileRegion) {
-        // Backup tile - only draw if primary fails in this region
-        const tile = backend.tileRegion;
-        ctx.drawImage(frame, tile.x, tile.y, tile.width, tile.height);
-      }
-    }
-  },
-  
-  // TILED: Each backend renders a vertical slice
-  tiled: {
-    init: (backends) => {
-      assignTiles(Array.from(backends.values()), false);
-      return { tiles: Array.from(backends.values()) };
-    },
-    render: (frame, backend) => {
-      if (backend.tileRegion) {
-        const tile = backend.tileRegion;
-        ctx.drawImage(frame, tile.x, tile.y, tile.width, tile.height);
-      }
-    }
-  },
-  
-  // REDUNDANT: All backends render full frame, use fastest
-  redundant: {
-    init: (backends) => {
-      backends.forEach(b => {
-        b.tileRegion = null; // Full screen
-        b.role = 'redundant';
-      });
-      return { backends: Array.from(backends.values()) };
-    },
-    render: (frame, backend) => {
-      // Always draw from fastest responding backend
-      ctx.drawImage(frame, 0, 0, VIEWPORT_WIDTH, VIEWPORT_HEIGHT);
-    }
-  },
-  
-  // ROUND ROBIN: Backends take turns, increases combined FPS
-  roundrobin: {
-    init: (backends) => {
-      const arr = Array.from(backends.values());
-      arr.forEach((b, i) => {
-        b.tileRegion = null;
-        b.role = 'roundrobin';
-        b.turnIndex = i;
-      });
-      return { backends: arr, currentTurn: 0 };
-    },
-    render: (frame, backend, state) => {
-      // Only render if it's this backend's turn
-      if (backend.turnIndex === state.currentTurn) {
-        ctx.drawImage(frame, 0, 0, VIEWPORT_WIDTH, VIEWPORT_HEIGHT);
-        state.currentTurn = (state.currentTurn + 1) % state.backends.length;
-      }
-    }
-  }
-};
-
-let currentStrategy = null;
-let strategyState = null;
-
 function setStatus(msg, type) {
   const el = document.getElementById("loginStatus");
   el.innerHTML = msg;
   el.className = "status show " + (type || "");
-}
-
-function selectFastest(backends) {
-  let fastest = null;
-  let minLatency = Infinity;
-  backends.forEach(backend => {
-    if (backend.status === 'connected' && backend.latency < minLatency) {
-      minLatency = backend.latency;
-      fastest = backend;
-    }
-  });
-  return fastest || Array.from(backends.values())[0];
-}
-
-function assignTiles(backends, isBackup) {
-  const count = backends.length;
-  const tileWidth = Math.floor(VIEWPORT_WIDTH / count);
-  
-  backends.forEach((backend, i) => {
-    const x = i * tileWidth;
-    const width = (i === count - 1) ? (VIEWPORT_WIDTH - x) : tileWidth;
-    
-    backend.tileRegion = { x, y: 0, width, height: VIEWPORT_HEIGHT };
-    backend.role = isBackup ? 'backup' : 'tile';
-  });
 }
 
 function initCanvas() {
@@ -481,6 +294,8 @@ function initCanvas() {
   
   canvas.addEventListener('click', handleClick);
   canvas.addEventListener('wheel', handleScroll, { passive: false });
+  canvas.addEventListener('keydown', handleKeydown);
+  canvas.focus();
 }
 
 function handleClick(e) {
@@ -488,11 +303,36 @@ function handleClick(e) {
   const x = Math.round((e.clientX - rect.left) * (VIEWPORT_WIDTH / rect.width));
   const y = Math.round((e.clientY - rect.top) * (VIEWPORT_HEIGHT / rect.height));
   sendCommandToAll('click', { x, y });
+  canvas.focus();
 }
 
 function handleScroll(e) {
   sendCommandToAll('scroll', { dy: e.deltaY });
   e.preventDefault();
+}
+
+function handleKeydown(e) {
+  if (e.ctrlKey || e.metaKey) {
+    if (e.key === 'l') {
+      e.preventDefault();
+      document.getElementById('globalUrl').focus();
+    }
+    return;
+  }
+  
+  if (e.key.length === 1) {
+    sendCommandToAll('type', { text: e.key });
+    e.preventDefault();
+  } else if (e.key === 'Enter') {
+    sendCommandToAll('type', { text: '\n' });
+    e.preventDefault();
+  } else if (e.key === 'Backspace') {
+    sendCommandToAll('type', { text: '\b' });
+    e.preventDefault();
+  } else if (e.key === 'Tab') {
+    sendCommandToAll('type', { text: '\t' });
+    e.preventDefault();
+  }
 }
 
 function sendCommandToAll(action, data) {
@@ -501,6 +341,16 @@ function sendCommandToAll(action, data) {
       backend.ws.send(JSON.stringify({ type: 'control', action, ...data }));
     }
   });
+}
+
+function getNextBackend() {
+  const connectedBackends = Array.from(backends.values()).filter(b => b.status === 'connected');
+  if (connectedBackends.length === 0) return null;
+  
+  const backend = connectedBackends[backendRotationIndex % connectedBackends.length];
+  backendRotationIndex = (backendRotationIndex + 1) % connectedBackends.length;
+  
+  return backend;
 }
 
 function updateBackendIndicators() {
@@ -512,11 +362,17 @@ function updateBackendIndicators() {
     dot.className = 'backend-dot';
     if (backend.status === 'connected') {
       dot.classList.add('active');
-      if (backend.role === 'primary') dot.classList.add('primary');
+      if (backend === currentRenderingBackend) {
+        dot.classList.add('rendering');
+      }
     }
-    dot.title = `${backend.host.name} (${backend.role || 'inactive'})`;
+    dot.title = `${backend.host.name}`;
     container.appendChild(dot);
   });
+  
+  if (currentRenderingBackend) {
+    document.getElementById('activeBackend').textContent = currentRenderingBackend.host.name;
+  }
 }
 
 function updateStats() {
@@ -533,20 +389,26 @@ function updateStats() {
   if (latencyStats.length > 0) {
     const avg = Math.round(latencyStats.reduce((a, b) => a + b, 0) / latencyStats.length);
     document.getElementById('latencyValue').textContent = avg + 'ms';
-    latencyStats = latencyStats.slice(-10); // Keep last 10
+    latencyStats = latencyStats.slice(-10);
   }
   
   updateBackendIndicators();
 }
 
 function renderFrame(backend, imageData) {
-  if (!ctx || !currentStrategy) return;
+  if (!ctx) return;
+  
+  // Only render from the designated backend for this frame
+  if (backend !== currentRenderingBackend) return;
   
   const img = new Image();
   img.onload = () => {
     requestAnimationFrame(() => {
-      currentStrategy.render(img, backend, strategyState);
+      ctx.drawImage(img, 0, 0, VIEWPORT_WIDTH, VIEWPORT_HEIGHT);
       frameStats.count++;
+      
+      // Rotate to next backend for next frame
+      currentRenderingBackend = getNextBackend();
     });
   };
   img.src = imageData;
@@ -564,8 +426,6 @@ async function connectBackend(host) {
       host,
       status: 'connecting',
       latency: null,
-      role: null,
-      tileRegion: null,
       startTime: Date.now()
     };
     
@@ -584,27 +444,13 @@ async function connectBackend(host) {
           backend.latency = Date.now() - backend.startTime;
           latencyStats.push(backend.latency);
           
-          // Initialize strategy if all backends connected
-          const allConnected = Array.from(backends.values()).every(b => b.status === 'connected');
-          if (allConnected && !currentStrategy) {
-            currentStrategy = RenderStrategies[renderMode];
-            strategyState = currentStrategy.init(backends);
-            
-            // Configure each backend based on strategy
-            backends.forEach(b => {
-              if (b.tileRegion) {
-                b.ws.send(JSON.stringify({
-                  type: 'control',
-                  action: 'setViewport',
-                  x: b.tileRegion.x,
-                  y: b.tileRegion.y,
-                  width: b.tileRegion.width,
-                  height: b.tileRegion.height
-                }));
-              }
-              b.ws.send(JSON.stringify({ type: 'control', action: 'startStream' }));
-            });
+          // Set first backend as current if none set
+          if (!currentRenderingBackend) {
+            currentRenderingBackend = backend;
           }
+          
+          // All backends render full screen
+          backend.ws.send(JSON.stringify({ type: 'control', action: 'startStream' }));
           
           updateStats();
         }
@@ -629,6 +475,12 @@ async function connectBackend(host) {
     
     ws.onclose = () => {
       backend.status = 'disconnected';
+      
+      // If current backend disconnected, switch to next
+      if (backend === currentRenderingBackend) {
+        currentRenderingBackend = getNextBackend();
+      }
+      
       setTimeout(() => connectBackend(host), 5000);
     };
     
@@ -669,27 +521,9 @@ async function validateAndLaunch() {
   document.getElementById('loginOverlay').classList.add('hidden');
   document.getElementById('mainScreen').style.display = 'flex';
   
-  const modeNames = {
-    hybrid: 'HYBRID MODE',
-    tiled: 'TILED MODE',
-    redundant: 'REDUNDANT MODE',
-    roundrobin: 'ROUND ROBIN'
-  };
-  document.getElementById('topTitle').textContent = modeNames[renderMode];
-  document.getElementById('modeBadge').textContent = modeNames[renderMode];
-  
   initCanvas();
   HOST_POOL.forEach(host => connectBackend(host));
 }
-
-// Mode selection
-document.querySelectorAll('.mode-card').forEach(card => {
-  card.addEventListener('click', () => {
-    document.querySelectorAll('.mode-card').forEach(c => c.classList.remove('selected'));
-    card.classList.add('selected');
-    renderMode = card.dataset.mode;
-  });
-});
 
 document.getElementById('wakeBtn').addEventListener('click', async () => {
   setStatus("☕ Waking servers...", "info");
@@ -726,6 +560,13 @@ document.addEventListener('keydown', (e) => {
   if ((e.ctrlKey || e.metaKey) && e.key === 'l') {
     e.preventDefault();
     document.getElementById('globalUrl').focus();
+  }
+});
+
+document.getElementById('globalUrl').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') {
+    document.getElementById('globalGo').click();
+    canvas.focus();
   }
 });
 
