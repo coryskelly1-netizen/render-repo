@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Multi-User Browser Proxy</title>
+<title>Coordinated Multi-Backend Browser</title>
 <style>
   * { box-sizing: border-box; }
   body { 
@@ -149,29 +149,12 @@
     color:#4ade80;
     font-weight:700;
   }
-  .backend-indicators {
-    display:flex;
-    gap:4px;
-  }
-  .backend-dot {
-    width:8px;
-    height:8px;
-    border-radius:50%;
+  .backend-count {
     background:#2d3748;
-    position:relative;
-  }
-  .backend-dot.active { 
-    background:#4ade80; 
-    animation:pulse 2s infinite; 
-  }
-  .backend-dot.rendering {
-    background:#4a5de6;
-    box-shadow:0 0 8px #4a5de6;
-  }
-  
-  @keyframes pulse {
-    0%, 100% { opacity:1; }
-    50% { opacity:0.5; }
+    padding:4px 12px;
+    border-radius:12px;
+    font-weight:700;
+    color:#4ade80;
   }
   
   .browser-viewport {
@@ -206,27 +189,54 @@
     z-index:10;
     box-shadow:0 4px 12px rgba(0,0,0,0.3);
   }
+  
+  .connection-status {
+    position:absolute;
+    top:60px;
+    right:15px;
+    background:rgba(26,31,58,0.95);
+    padding:10px 15px;
+    border-radius:8px;
+    font-size:11px;
+    z-index:10;
+    max-width:200px;
+  }
+  .connection-status.hidden { display:none; }
+  .conn-item {
+    margin:3px 0;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+  }
+  .conn-dot {
+    width:6px;
+    height:6px;
+    border-radius:50%;
+    background:#f87171;
+    margin-left:8px;
+  }
+  .conn-dot.online { background:#4ade80; }
 </style>
 </head>
 <body>
 
 <div class="login-overlay" id="loginOverlay">
   <div class="login-box">
-    <h1>🚀 Multi-User Browser</h1>
-    <div class="subtitle">Round-robin rendering - Maximum FPS with all 5 backends!</div>
+    <h1>🚀 Coordinated Browser</h1>
+    <div class="subtitle">5 backends working together through coordinator API</div>
     
     <input id="name" placeholder="Your name" value="Alice">
     <input id="key" placeholder="Access key" type="password" value="8392017">
     
-    <button class="wake-btn" id="wakeBtn">☕ Wake All Servers</button>
-    <button id="launchBtn">🚀 Launch Browser</button>
+    <button class="wake-btn" id="wakeBtn">☕ Wake Coordinator</button>
+    <button id="launchBtn">🚀 Launch Coordinated Browser</button>
     <div id="loginStatus" class="status"></div>
   </div>
 </div>
 
 <div class="main-screen" id="mainScreen" style="display:none">
   <div class="top-bar">
-    <h1>ROUND ROBIN MODE</h1>
+    <h1>COORDINATED MODE</h1>
     <div class="url-bar">
       <input id="globalUrl" placeholder="Navigate to..." value="https://example.com">
       <button id="globalGo">Go</button>
@@ -239,46 +249,39 @@
         <span>FPS:</span>
         <span class="stat-value" id="fpsValue">0</span>
       </div>
-      <div class="stat-item">
-        <span>Latency:</span>
-        <span class="stat-value" id="latencyValue">0ms</span>
-      </div>
-      <div class="stat-item">
-        <span>Active:</span>
-        <span class="stat-value" id="activeBackend">-</span>
-      </div>
-      <div class="backend-indicators" id="backendIndicators"></div>
+      <div class="backend-count" id="backendCount">5 Backends</div>
     </div>
   </div>
   
   <div class="browser-viewport" id="browserViewport">
     <canvas id="viewportCanvas" class="viewport-canvas" width="1366" height="768" tabindex="0"></canvas>
-    <div class="mode-badge-corner">5x FRAME INTERLEAVING</div>
+    <div class="mode-badge-corner">COORDINATOR API</div>
+    <div class="connection-status" id="connectionStatus">
+      <div style="font-weight:700;margin-bottom:5px;">Backend Status</div>
+      <div id="backendStatusList"></div>
+    </div>
   </div>
 </div>
 
 <script>
-const HOST_POOL = [
-  { name: "R1", url: "https://render-repo-1-yto6.onrender.com" },
-  { name: "R2", url: "https://render-repo-0x73.onrender.com" },
-  { name: "R3", url: "https://render-repo-f64m.onrender.com" },
-  { name: "R4", url: "https://render-repo-791m.onrender.com" },
-  { name: "R5", url: "https://render-repo-l0tw.onrender.com" },
-];
+// COORDINATOR URL - Your 6th Render service
+const COORDINATOR_URL = 'wss://browser-proxy-coordinator.onrender.com/ws';
+
+// For validation
+const COORDINATOR_HTTP = 'https://browser-proxy-coordinator.onrender.com';
 
 const VIEWPORT_WIDTH = 1366;
 const VIEWPORT_HEIGHT = 768;
 
-let backends = new Map();
+let ws = null;
 let userName = "";
 let canvas = null;
 let ctx = null;
-let currentRenderingBackend = null;
-let backendRotationIndex = 0;
+let isConnected = false;
+let backendInfo = { total: 5, ready: 0 };
 
 // Performance tracking
 let frameStats = { count: 0, lastUpdate: Date.now() };
-let latencyStats = [];
 
 function setStatus(msg, type) {
   const el = document.getElementById("loginStatus");
@@ -302,12 +305,18 @@ function handleClick(e) {
   const rect = canvas.getBoundingClientRect();
   const x = Math.round((e.clientX - rect.left) * (VIEWPORT_WIDTH / rect.width));
   const y = Math.round((e.clientY - rect.top) * (VIEWPORT_HEIGHT / rect.height));
-  sendCommandToAll('click', { x, y });
+  
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify({ type: 'control', action: 'click', x, y }));
+  }
+  
   canvas.focus();
 }
 
 function handleScroll(e) {
-  sendCommandToAll('scroll', { dy: e.deltaY });
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify({ type: 'control', action: 'scroll', dy: e.deltaY }));
+  }
   e.preventDefault();
 }
 
@@ -320,58 +329,20 @@ function handleKeydown(e) {
     return;
   }
   
+  if (!ws || ws.readyState !== WebSocket.OPEN) return;
+  
   if (e.key.length === 1) {
-    sendCommandToAll('type', { text: e.key });
+    ws.send(JSON.stringify({ type: 'control', action: 'type', text: e.key }));
     e.preventDefault();
   } else if (e.key === 'Enter') {
-    sendCommandToAll('type', { text: '\n' });
+    ws.send(JSON.stringify({ type: 'control', action: 'type', text: '\n' }));
     e.preventDefault();
   } else if (e.key === 'Backspace') {
-    sendCommandToAll('type', { text: '\b' });
+    ws.send(JSON.stringify({ type: 'control', action: 'type', text: '\b' }));
     e.preventDefault();
   } else if (e.key === 'Tab') {
-    sendCommandToAll('type', { text: '\t' });
+    ws.send(JSON.stringify({ type: 'control', action: 'type', text: '\t' }));
     e.preventDefault();
-  }
-}
-
-function sendCommandToAll(action, data) {
-  backends.forEach(backend => {
-    if (backend.status === 'connected' && backend.ws.readyState === WebSocket.OPEN) {
-      backend.ws.send(JSON.stringify({ type: 'control', action, ...data }));
-    }
-  });
-}
-
-function getNextBackend() {
-  const connectedBackends = Array.from(backends.values()).filter(b => b.status === 'connected');
-  if (connectedBackends.length === 0) return null;
-  
-  const backend = connectedBackends[backendRotationIndex % connectedBackends.length];
-  backendRotationIndex = (backendRotationIndex + 1) % connectedBackends.length;
-  
-  return backend;
-}
-
-function updateBackendIndicators() {
-  const container = document.getElementById('backendIndicators');
-  container.innerHTML = '';
-  
-  backends.forEach(backend => {
-    const dot = document.createElement('div');
-    dot.className = 'backend-dot';
-    if (backend.status === 'connected') {
-      dot.classList.add('active');
-      if (backend === currentRenderingBackend) {
-        dot.classList.add('rendering');
-      }
-    }
-    dot.title = `${backend.host.name}`;
-    container.appendChild(dot);
-  });
-  
-  if (currentRenderingBackend) {
-    document.getElementById('activeBackend').textContent = currentRenderingBackend.host.name;
   }
 }
 
@@ -385,107 +356,112 @@ function updateStats() {
     frameStats.count = 0;
     frameStats.lastUpdate = now;
   }
-  
-  if (latencyStats.length > 0) {
-    const avg = Math.round(latencyStats.reduce((a, b) => a + b, 0) / latencyStats.length);
-    document.getElementById('latencyValue').textContent = avg + 'ms';
-    latencyStats = latencyStats.slice(-10);
-  }
-  
-  updateBackendIndicators();
 }
 
-function renderFrame(backend, imageData) {
+function renderFrame(imageData) {
   if (!ctx) return;
-  
-  // Only render from the designated backend for this frame
-  if (backend !== currentRenderingBackend) return;
   
   const img = new Image();
   img.onload = () => {
     requestAnimationFrame(() => {
       ctx.drawImage(img, 0, 0, VIEWPORT_WIDTH, VIEWPORT_HEIGHT);
       frameStats.count++;
-      
-      // Rotate to next backend for next frame
-      currentRenderingBackend = getNextBackend();
     });
   };
   img.src = imageData;
 }
 
-async function connectBackend(host) {
-  const wsUrl = host.url.replace(/^http/, 'ws') + '/ws';
+function connectToCoordinator() {
+  console.log('Connecting to coordinator...');
   
-  try {
-    const ws = new WebSocket(wsUrl);
-    ws.binaryType = 'arraybuffer';
+  ws = new WebSocket(COORDINATOR_URL);
+  ws.binaryType = 'arraybuffer';
+  
+  ws.onopen = () => {
+    console.log('✅ Connected to coordinator');
+    isConnected = true;
     
-    const backend = {
-      ws,
-      host,
-      status: 'connecting',
-      latency: null,
-      startTime: Date.now()
-    };
-    
-    backends.set(host.url, backend);
-    
-    ws.onopen = () => {
-      backend.status = 'authenticating';
-      ws.send(JSON.stringify({ type: 'control', action: 'create', userName }));
-    };
-    
-    ws.onmessage = (e) => {
-      if (typeof e.data === 'string') {
+    // Create session
+    ws.send(JSON.stringify({
+      type: 'control',
+      action: 'create',
+      userName: userName
+    }));
+  };
+  
+  ws.onmessage = (e) => {
+    // JSON control messages
+    if (typeof e.data === 'string') {
+      try {
         const msg = JSON.parse(e.data);
+        
         if (msg.type === 'info' && msg.action === 'created') {
-          backend.status = 'connected';
-          backend.latency = Date.now() - backend.startTime;
-          latencyStats.push(backend.latency);
-          
-          // Set first backend as current if none set
-          if (!currentRenderingBackend) {
-            currentRenderingBackend = backend;
-          }
-          
-          // All backends render full screen
-          backend.ws.send(JSON.stringify({ type: 'control', action: 'startStream' }));
-          
-          updateStats();
+          console.log(`✅ Coordinator session created with ${msg.backends} backends`);
+          document.getElementById('backendCount').textContent = `${msg.backends} Backends`;
+          backendInfo.total = msg.backends;
         }
-        return;
+        
+        if (msg.type === 'info' && msg.action === 'allBackendsReady') {
+          console.log(`✅ All ${msg.count} backends are ready!`);
+          backendInfo.ready = msg.count;
+          updateBackendStatus();
+        }
+        
+        if (msg.type === 'error') {
+          console.error('Coordinator error:', msg.message);
+        }
+      } catch (err) {
+        console.error('Failed to parse message:', err);
       }
-      
-      // Binary frame data
-      const blob = new Blob([e.data], { type: 'image/jpeg' });
-      const url = URL.createObjectURL(blob);
-      renderFrame(backend, url);
-      
-      if (backend.lastFrameUrl) {
-        setTimeout(() => URL.revokeObjectURL(backend.lastFrameUrl), 500);
+      return;
+    }
+    
+    // Binary frame data from coordinator
+    const blob = new Blob([e.data], { type: 'image/jpeg' });
+    const url = URL.createObjectURL(blob);
+    renderFrame(url);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  };
+  
+  ws.onerror = (err) => {
+    console.error('WebSocket error:', err);
+    isConnected = false;
+  };
+  
+  ws.onclose = () => {
+    console.log('Disconnected from coordinator');
+    isConnected = false;
+    
+    // Show reconnection message
+    ctx.fillStyle = '#1a1a1a';
+    ctx.fillRect(0, 0, VIEWPORT_WIDTH, VIEWPORT_HEIGHT);
+    ctx.fillStyle = '#fff';
+    ctx.font = '24px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('Disconnected - Reconnecting...', VIEWPORT_WIDTH/2, VIEWPORT_HEIGHT/2);
+    
+    // Attempt reconnect after 3 seconds
+    setTimeout(() => {
+      if (!isConnected) {
+        connectToCoordinator();
       }
-      backend.lastFrameUrl = url;
-    };
-    
-    ws.onerror = () => {
-      backend.status = 'error';
-      updateStats();
-    };
-    
-    ws.onclose = () => {
-      backend.status = 'disconnected';
-      
-      // If current backend disconnected, switch to next
-      if (backend === currentRenderingBackend) {
-        currentRenderingBackend = getNextBackend();
-      }
-      
-      setTimeout(() => connectBackend(host), 5000);
-    };
-    
-  } catch (err) {
-    console.error(`Failed to connect ${host.name}:`, err);
+    }, 3000);
+  };
+}
+
+function updateBackendStatus() {
+  const statusList = document.getElementById('backendStatusList');
+  statusList.innerHTML = '';
+  
+  for (let i = 0; i < backendInfo.total; i++) {
+    const item = document.createElement('div');
+    item.className = 'conn-item';
+    const isReady = i < backendInfo.ready;
+    item.innerHTML = `
+      <span>Backend ${i + 1}</span>
+      <div class="conn-dot ${isReady ? 'online' : ''}"></div>
+    `;
+    statusList.appendChild(item);
   }
 }
 
@@ -501,60 +477,67 @@ async function validateAndLaunch() {
   userName = name;
   setStatus("🔍 Validating...", "info");
   
-  let validated = false;
-  for (const host of HOST_POOL) {
-    try {
-      const r = await fetch(host.url + "/validate?name=" + encodeURIComponent(name) + "&key=" + encodeURIComponent(key));
-      const j = await r.json();
-      if (j.valid) {
-        validated = true;
-        break;
-      }
-    } catch (e) {}
+  try {
+    const r = await fetch(`${COORDINATOR_HTTP}/validate?name=${encodeURIComponent(name)}&key=${encodeURIComponent(key)}`);
+    const j = await r.json();
+    
+    if (!j.valid) {
+      setStatus("❌ Invalid credentials", "error");
+      return;
+    }
+    
+    // Hide login, show browser
+    document.getElementById('loginOverlay').classList.add('hidden');
+    document.getElementById('mainScreen').style.display = 'flex';
+    
+    initCanvas();
+    connectToCoordinator();
+    
+  } catch (e) {
+    setStatus("❌ Connection failed: " + e.message, "error");
   }
-  
-  if (!validated) {
-    setStatus("❌ Invalid credentials", "error");
-    return;
-  }
-  
-  document.getElementById('loginOverlay').classList.add('hidden');
-  document.getElementById('mainScreen').style.display = 'flex';
-  
-  initCanvas();
-  HOST_POOL.forEach(host => connectBackend(host));
 }
 
 document.getElementById('wakeBtn').addEventListener('click', async () => {
-  setStatus("☕ Waking servers...", "info");
-  let online = 0;
+  setStatus("☕ Checking coordinator...", "info");
   
-  const checks = HOST_POOL.map(async (host) => {
-    try {
-      const r = await fetch(host.url + "/health", { cache: 'no-store' });
-      if ((await r.json()).status === "ok") {
-        online++;
-        return `✅ ${host.name}`;
-      }
-    } catch (e) {}
-    return `❌ ${host.name}`;
-  });
-  
-  const results = await Promise.all(checks);
-  setStatus(results.join('<br>') + `<br><br><strong>${online}/${HOST_POOL.length} online</strong>`, 
-    online === HOST_POOL.length ? "success" : "info");
+  try {
+    const r = await fetch(`${COORDINATOR_HTTP}/health`, { cache: 'no-store' });
+    const j = await r.json();
+    
+    if (j.status === 'ok') {
+      setStatus(`✅ Coordinator online (${j.backends} backends configured)`, "success");
+    } else {
+      setStatus("⚠️ Coordinator responded but not OK", "error");
+    }
+  } catch (e) {
+    setStatus(`❌ Coordinator unreachable: ${e.message}`, "error");
+  }
 });
 
 document.getElementById('launchBtn').addEventListener('click', validateAndLaunch);
 
 document.getElementById('globalGo').addEventListener('click', () => {
   let url = document.getElementById('globalUrl').value.trim();
-  if (url && !/^https?:\/\//i.test(url)) url = 'https://' + url;
-  if (url) sendCommandToAll('navigate', { url });
+  if (!url) return;
+  if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
+  
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify({ type: 'control', action: 'navigate', url }));
+  }
 });
 
-document.getElementById('globalBack').addEventListener('click', () => sendCommandToAll('back', {}));
-document.getElementById('globalForward').addEventListener('click', () => sendCommandToAll('forward', {}));
+document.getElementById('globalBack').addEventListener('click', () => {
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify({ type: 'control', action: 'back' }));
+  }
+});
+
+document.getElementById('globalForward').addEventListener('click', () => {
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify({ type: 'control', action: 'forward' }));
+  }
+});
 
 document.addEventListener('keydown', (e) => {
   if ((e.ctrlKey || e.metaKey) && e.key === 'l') {
@@ -571,6 +554,15 @@ document.getElementById('globalUrl').addEventListener('keydown', (e) => {
 });
 
 setInterval(updateStats, 1000);
+
+// Show backend status on hover
+document.getElementById('backendCount').addEventListener('mouseenter', () => {
+  document.getElementById('connectionStatus').classList.remove('hidden');
+});
+
+setTimeout(() => {
+  document.getElementById('connectionStatus').classList.add('hidden');
+}, 5000);
 </script>
 </body>
 </html>
